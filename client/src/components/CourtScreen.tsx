@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useGame } from '@/lib/gameContext';
 import { getCharacterAge, CULTURES, type Character } from '@/lib/gameTypes';
 import { Portrait } from './Portrait';
+import { MarriageDialog } from './MarriageDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';

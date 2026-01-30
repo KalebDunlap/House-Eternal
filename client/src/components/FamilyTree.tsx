@@ -294,17 +294,18 @@ export function FamilyTree() {
         <div className="flex justify-center p-20 min-w-max min-h-max bg-[#F3E6D5]/10">
           <div className="cursor-grab active:cursor-grabbing">
             <TreeNode
-            character={dynastyFounder}
-            currentWeek={gameState.currentWeek}
-            titles={gameState.titles}
-            characters={gameState.characters}
-            onSelect={handleSelectCharacter}
-            expandedNodes={treeExpandedNodes}
-            onToggleExpand={toggleTreeNode}
-            showDeceased={showDeceased}
-            depth={0}
-            playerDynastyId={gameState.playerDynastyId}
-          />
+              character={dynastyFounder}
+              currentWeek={gameState.currentWeek}
+              titles={gameState.titles}
+              characters={gameState.characters}
+              onSelect={handleSelectCharacter}
+              expandedNodes={treeExpandedNodes}
+              onToggleExpand={toggleTreeNode}
+              showDeceased={showDeceased}
+              depth={0}
+              playerDynastyId={gameState.playerDynastyId}
+            />
+          </div>
         </div>
       </ScrollArea>
     </div>
