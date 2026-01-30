@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, Skull, Heart, Users } from 'lucide-react';
 import React, { useMemo, useCallback } from 'react';
+import { useLocation } from 'wouter';
 
 interface TreeNodeProps {
   character: Character;
@@ -183,7 +184,13 @@ function TreeNode({
 
 export function FamilyTree() {
   const { gameState, selectCharacter, treeExpandedNodes, setTreeExpandedNodes, toggleTreeNode } = useGame();
+  const [, setLocation] = useLocation();
   const [showDeceased, setShowDeceased] = React.useState(true);
+
+  const handleSelectCharacter = useCallback((id: string) => {
+    selectCharacter(id);
+    setLocation('/character');
+  }, [selectCharacter, setLocation]);
 
   const expandAll = useCallback(() => {
     if (!gameState) return;
@@ -285,7 +292,7 @@ export function FamilyTree() {
             currentWeek={gameState.currentWeek}
             titles={gameState.titles}
             characters={gameState.characters}
-            onSelect={selectCharacter}
+            onSelect={handleSelectCharacter}
             expandedNodes={treeExpandedNodes}
             onToggleExpand={toggleTreeNode}
             showDeceased={showDeceased}
