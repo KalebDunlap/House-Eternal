@@ -20,9 +20,6 @@ interface TreeNodeProps {
   showDeceased: boolean;
   depth: number;
   playerDynastyId: string;
-  isFirstChild?: boolean;
-  isLastChild?: boolean;
-  isOnlyChild?: boolean;
 }
 
 function TreeNode({ 
@@ -36,9 +33,6 @@ function TreeNode({
   showDeceased,
   depth,
   playerDynastyId,
-  isFirstChild,
-  isLastChild,
-  isOnlyChild,
 }: TreeNodeProps) {
   const children = character.childrenIds
     .map(id => characters[id])
@@ -154,7 +148,40 @@ function TreeNode({
       </div>
 
       {hasChildren && isExpanded && (
-        <div className="w-1 h-6 bg-[#C1A173] mt-0" />
+        <div className="flex flex-col items-center mt-0 w-full">
+          <div className="w-1 h-8 bg-[#C1A173] mb-0" />
+          
+          <div className="relative flex justify-center w-full">
+            {children.length > 1 && (
+              <div 
+                className="absolute top-0 h-1 bg-[#C1A173]" 
+                style={{ 
+                  left: `calc(100% / ${children.length * 2})`,
+                  right: `calc(100% / ${children.length * 2})`,
+                }} 
+              />
+            )}
+            <div className="flex gap-12 px-4 justify-center">
+              {children.map((child) => (
+                <div key={child.id} className="flex flex-col items-center relative">
+                  <div className="w-1 h-8 bg-[#C1A173]" />
+                  <TreeNode
+                    character={child}
+                    currentWeek={currentWeek}
+                    titles={titles}
+                    characters={characters}
+                    onSelect={onSelect}
+                    expandedNodes={expandedNodes}
+                    onToggleExpand={onToggleExpand}
+                    showDeceased={showDeceased}
+                    depth={depth + 1}
+                    playerDynastyId={playerDynastyId}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
