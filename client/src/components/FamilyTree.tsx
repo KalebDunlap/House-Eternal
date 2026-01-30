@@ -20,6 +20,9 @@ interface TreeNodeProps {
   showDeceased: boolean;
   depth: number;
   playerDynastyId: string;
+  isFirstChild?: boolean;
+  isLastChild?: boolean;
+  isOnlyChild?: boolean;
 }
 
 function TreeNode({ 
@@ -33,6 +36,9 @@ function TreeNode({
   showDeceased,
   depth,
   playerDynastyId,
+  isFirstChild,
+  isLastChild,
+  isOnlyChild,
 }: TreeNodeProps) {
   const children = character.childrenIds
     .map(id => characters[id])
@@ -46,22 +52,23 @@ function TreeNode({
   const isPlayerDynasty = character.dynastyId === playerDynastyId;
 
   return (
-    <div className="flex flex-col items-center">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col items-center relative">
+      <div className="flex items-center">
         <Card 
-          className={`p-2 cursor-pointer transition-all hover-elevate border-2 ${
-            !character.alive ? 'opacity-60 border-muted' : 
-            isPlayerDynasty ? 'border-primary/50' : 'border-transparent'
+          className={`p-0 cursor-pointer transition-all hover-elevate border-2 bg-[#F3E6D5] overflow-visible ${
+            !character.alive ? 'opacity-60 border-muted grayscale' : 
+            isPlayerDynasty ? 'border-[#C1A173]' : 'border-transparent'
           }`}
+          style={{ width: '180px' }}
           onClick={() => onSelect(character.id)}
           data-testid={`tree-node-${character.id}`}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center p-2 gap-3 relative">
             {hasChildren && (
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-5 w-5 shrink-0"
+                className="absolute -left-8 top-1/2 -translate-y-1/2 h-6 w-6 shrink-0 bg-[#F3E6D5] border border-[#C1A173] rounded-sm hover:bg-[#E8D9C5]"
                 onClick={(e) => {
                   e.stopPropagation();
                   onToggleExpand(character.id);
@@ -69,37 +76,39 @@ function TreeNode({
                 data-testid={`expand-${character.id}`}
               >
                 {isExpanded ? (
-                  <ChevronDown className="h-3 w-3" />
+                  <ChevronDown className="h-4 w-4 text-[#8B4513]" />
                 ) : (
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className="h-4 w-4 text-[#8B4513]" />
                 )}
               </Button>
             )}
-            <Portrait
-              portrait={character.portrait}
-              sex={character.sex}
-              culture={character.culture}
-              rank={character.primaryTitleId ? titles[character.primaryTitleId]?.rank : null}
-              alive={character.alive}
-              size="sm"
-            />
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-1">
-                <span className={`text-sm font-medium truncate max-w-[100px] ${!character.alive ? 'text-muted-foreground line-through' : ''}`}>
+            <div className="shrink-0 border border-[#C1A173]/30 rounded-sm bg-white p-0.5">
+              <Portrait
+                portrait={character.portrait}
+                sex={character.sex}
+                culture={character.culture}
+                rank={character.primaryTitleId ? titles[character.primaryTitleId]?.rank : null}
+                alive={character.alive}
+                size="sm"
+              />
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-center gap-1 justify-between">
+                <span className={`text-sm font-serif font-bold truncate ${!character.alive ? 'text-muted-foreground' : 'text-[#5D4037]'}`}>
                   {character.name}
                 </span>
                 {!character.alive && (
-                  <Skull className="h-3 w-3 text-destructive flex-shrink-0" />
+                  <Skull className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                 )}
               </div>
-              <div className="flex items-center gap-1 flex-wrap">
+              <div className="flex items-center gap-1 flex-wrap mt-0.5">
                 {title && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5">
+                  <span className="text-[10px] font-medium text-[#8B4513] bg-[#E8D9C5] px-1 rounded-sm">
                     {title}
-                  </Badge>
+                  </span>
                 )}
-                <span className="text-[10px] text-muted-foreground">
-                  {character.alive ? age : `${age}`}
+                <span className="text-[11px] text-[#795548] font-mono">
+                  {age}
                 </span>
               </div>
             </div>
@@ -108,36 +117,34 @@ function TreeNode({
 
         {spouse && (showDeceased || spouse.alive) && (
           <>
-            <div className="flex items-center gap-1">
-              <Heart className="h-3 w-3 text-pink-500" />
+            <div className="w-8 h-1 bg-[#C1A173] flex items-center justify-center relative">
+              <Heart className="h-3 w-3 text-[#C1A173] absolute fill-[#F3E6D5]" />
             </div>
             <Card 
-              className={`p-2 cursor-pointer transition-all hover-elevate ${
-                !spouse.alive ? 'opacity-60' : ''
+              className={`p-0 cursor-pointer transition-all hover-elevate border-2 bg-[#F3E6D5] ${
+                !spouse.alive ? 'opacity-60 grayscale' : 'border-transparent'
               }`}
+              style={{ width: '150px' }}
               onClick={() => onSelect(spouse.id)}
               data-testid={`spouse-node-${spouse.id}`}
             >
-              <div className="flex items-center gap-2">
-                <Portrait
-                  portrait={spouse.portrait}
-                  sex={spouse.sex}
-                  culture={spouse.culture}
-                  rank={spouse.primaryTitleId ? titles[spouse.primaryTitleId]?.rank : null}
-                  alive={spouse.alive}
-                  size="sm"
-                />
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-1">
-                    <span className={`text-sm font-medium truncate max-w-[80px] ${!spouse.alive ? 'text-muted-foreground line-through' : ''}`}>
-                      {spouse.name}
-                    </span>
-                    {!spouse.alive && (
-                      <Skull className="h-3 w-3 text-destructive flex-shrink-0" />
-                    )}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    {spouse.alive ? getCharacterAge(spouse, currentWeek) : getCharacterAge(spouse, currentWeek)}
+              <div className="flex items-center p-2 gap-3">
+                <div className="shrink-0 border border-[#C1A173]/30 rounded-sm bg-white p-0.5">
+                  <Portrait
+                    portrait={spouse.portrait}
+                    sex={spouse.sex}
+                    culture={spouse.culture}
+                    rank={spouse.primaryTitleId ? titles[spouse.primaryTitleId]?.rank : null}
+                    alive={spouse.alive}
+                    size="sm"
+                  />
+                </div>
+                <div className="flex flex-col min-w-0 flex-1">
+                  <span className={`text-sm font-serif font-bold truncate ${!spouse.alive ? 'text-muted-foreground' : 'text-[#5D4037]'}`}>
+                    {spouse.name}
+                  </span>
+                  <span className="text-[11px] text-[#795548] font-mono">
+                    {getCharacterAge(spouse, currentWeek)}
                   </span>
                 </div>
               </div>
@@ -147,36 +154,7 @@ function TreeNode({
       </div>
 
       {hasChildren && isExpanded && (
-        <div className="flex flex-col items-center mt-2">
-          <div className="w-px h-4 bg-border" />
-          
-          {children.length > 1 && (
-            <div 
-              className="h-px bg-border"
-              style={{ width: `${Math.max((children.length - 1) * 180, 50)}px` }}
-            />
-          )}
-          
-          <div className="flex gap-4">
-            {children.map((child) => (
-              <div key={child.id} className="flex flex-col items-center">
-                <div className="w-px h-4 bg-border" />
-                <TreeNode
-                  character={child}
-                  currentWeek={currentWeek}
-                  titles={titles}
-                  characters={characters}
-                  onSelect={onSelect}
-                  expandedNodes={expandedNodes}
-                  onToggleExpand={onToggleExpand}
-                  showDeceased={showDeceased}
-                  depth={depth + 1}
-                  playerDynastyId={playerDynastyId}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+        <div className="w-1 h-6 bg-[#C1A173] mt-0" />
       )}
     </div>
   );

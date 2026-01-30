@@ -231,6 +231,10 @@ export function Portrait({ portrait, sex, culture, rank, alive, size = 'md', cla
         
         <path d={headPath} fill={`url(#skin-${portrait.seed})`} stroke={skinTone} strokeWidth="0.5" />
         
+        {hairStyle.path && (hairStyle.type === 'veiled' || hairStyle.type === 'braided' || hairStyle.type === 'updo') && (
+          <path d={hairStyle.path} fill={hairColor} />
+        )}
+        
         <g>
           <ellipse 
             cx={centerX - eyeSpacing} 
@@ -327,7 +331,7 @@ export function Portrait({ portrait, sex, culture, rank, alive, size = 'md', cla
           <path d={beardStyle.path} fill={hairColor} opacity="0.85" />
         )}
         
-        {hairStyle.path && hairStyle.type !== 'long' && (
+        {hairStyle.path && hairStyle.type !== 'long' && hairStyle.type !== 'veiled' && hairStyle.type !== 'braided' && hairStyle.type !== 'updo' && (
           <path d={hairStyle.path} fill={hairColor} />
         )}
         
