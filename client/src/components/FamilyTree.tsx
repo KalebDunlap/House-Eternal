@@ -290,8 +290,8 @@ export function FamilyTree() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 h-full w-full">
-        <div className="flex justify-center p-40 min-w-[5000px] min-h-[5000px] bg-[#F3E6D5]/10">
+      <ScrollArea className="flex-1 w-full h-full">
+        <div className="p-40 bg-[#F3E6D5]/10 min-w-max min-h-max flex justify-center items-start">
           <div className="cursor-grab active:cursor-grabbing">
             <TreeNode
               character={dynastyFounder}
