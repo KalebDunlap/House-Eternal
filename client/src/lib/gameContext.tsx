@@ -9,21 +9,27 @@ interface GameContextType {
   gameState: GameState | null;
   isRunning: boolean;
   selectedCharacterId: string | null;
-  activeScreen: 'tree' | 'character' | 'timeline' | 'succession' | 'holdings';
+  activeScreen: 'tree' | 'character' | 'timeline' | 'succession' | 'holdings' | 'court';
   startNewGame: (dynastyName: string, rulerName: string, culture: CultureId, sex: Sex) => void;
   loadGame: () => boolean;
   saveGame: () => void;
+  exitGame: () => void;
   setSpeed: (speed: 0 | 1 | 2 | 4) => void;
   selectCharacter: (id: string | null) => void;
-  setActiveScreen: (screen: 'tree' | 'character' | 'timeline' | 'succession' | 'holdings') => void;
+  setActiveScreen: (screen: 'tree' | 'character' | 'timeline' | 'succession' | 'holdings' | 'court') => void;
   resolveEvent: (eventId: string, choiceIndex: number) => void;
   arrangeMarriage: (char1Id: string, char2Id: string) => boolean;
+  inviteToCourt: (characterId: string) => boolean;
+  banishFromCourt: (characterId: string) => boolean;
+  grantTitle: (characterId: string, titleId: string) => boolean;
   getCharacter: (id: string) => Character | undefined;
   getDynasty: (id: string) => Dynasty | undefined;
   getTitle: (id: string) => Title | undefined;
   getPlayerCharacter: () => Character | undefined;
   getPlayerDynasty: () => Dynasty | undefined;
   getDynastyMembers: (dynastyId: string) => Character[];
+  getCourtMembers: () => Character[];
+  getNonDynasticCharacters: () => Character[];
   getChildren: (characterId: string) => Character[];
   getSpouses: (characterId: string) => Character[];
   getParents: (characterId: string) => { mother: Character | undefined; father: Character | undefined };
@@ -130,6 +136,7 @@ function createCharacter(
     pregnancyWeeksRemaining: 0,
     isRuler: false,
     primaryTitleId: null,
+    atCourt: null,
   };
 }
 
@@ -181,7 +188,7 @@ function createHolding(name: string, titleId: string): Holding {
 export function GameProvider({ children }: { children: ReactNode }) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
-  const [activeScreen, setActiveScreen] = useState<'tree' | 'character' | 'timeline' | 'succession' | 'holdings'>('tree');
+  const [activeScreen, setActiveScreen] = useState<'tree' | 'character' | 'timeline' | 'succession' | 'holdings' | 'court'>('tree');
   const tickRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
 
@@ -522,6 +529,138 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return true;
   }, [gameState]);
 
+  const exitGame = useCallback(() => {
+    setGameState(null);
+    setSelectedCharacterId(null);
+    setActiveScreen('tree');
+  }, []);
+
+  const inviteToCourt = useCallback((characterId: string): boolean => {
+    if (!gameState) return false;
+    
+    const character = gameState.characters[characterId];
+    const playerChar = gameState.characters[gameState.playerCharacterId];
+    const playerDynasty = gameState.dynasties[gameState.playerDynastyId];
+    
+    if (!character || !playerChar) return false;
+    if (!character.alive) return false;
+    if (character.dynastyId === gameState.playerDynastyId) return false;
+    if (character.atCourt === gameState.playerCharacterId) return false;
+    
+    const baseChance = 0.5;
+    const prestigeBonus = playerDynasty ? Math.min(playerDynasty.prestige / 500, 0.3) : 0;
+    const diplomacyBonus = playerChar.skills.diplomacy / 100;
+    const acceptChance = Math.min(baseChance + prestigeBonus + diplomacyBonus, 0.95);
+    
+    if (Math.random() > acceptChance) {
+      return false;
+    }
+    
+    setGameState(prev => {
+      if (!prev) return null;
+      
+      const updatedChar = { 
+        ...prev.characters[characterId], 
+        atCourt: prev.playerCharacterId 
+      };
+      
+      return {
+        ...prev,
+        characters: {
+          ...prev.characters,
+          [characterId]: updatedChar,
+        },
+      };
+    });
+    
+    return true;
+  }, [gameState]);
+
+  const banishFromCourt = useCallback((characterId: string): boolean => {
+    if (!gameState) return false;
+    
+    const character = gameState.characters[characterId];
+    
+    if (!character) return false;
+    if (character.atCourt !== gameState.playerCharacterId) return false;
+    
+    setGameState(prev => {
+      if (!prev) return null;
+      
+      const updatedChar = { 
+        ...prev.characters[characterId], 
+        atCourt: null 
+      };
+      
+      return {
+        ...prev,
+        characters: {
+          ...prev.characters,
+          [characterId]: updatedChar,
+        },
+      };
+    });
+    
+    return true;
+  }, [gameState]);
+
+  const grantTitle = useCallback((characterId: string, titleId: string): boolean => {
+    if (!gameState) return false;
+    
+    const character = gameState.characters[characterId];
+    const title = gameState.titles[titleId];
+    const playerChar = gameState.characters[gameState.playerCharacterId];
+    
+    if (!character || !title || !playerChar) return false;
+    if (!character.alive) return false;
+    if (title.holderId !== gameState.playerCharacterId) return false;
+    
+    setGameState(prev => {
+      if (!prev) return null;
+      
+      const updatedTitle = { ...prev.titles[titleId], holderId: characterId };
+      const updatedChar = { 
+        ...prev.characters[characterId], 
+        primaryTitleId: prev.characters[characterId].primaryTitleId || titleId 
+      };
+      
+      const playerTitles = Object.values(prev.titles).filter(t => t.holderId === prev.playerCharacterId);
+      const updatedPlayer = { 
+        ...prev.characters[prev.playerCharacterId],
+        primaryTitleId: playerTitles.length > 1 ? playerTitles.find(t => t.id !== titleId)?.id || null : null,
+      };
+      
+      return {
+        ...prev,
+        characters: {
+          ...prev.characters,
+          [characterId]: updatedChar,
+          [prev.playerCharacterId]: updatedPlayer,
+        },
+        titles: {
+          ...prev.titles,
+          [titleId]: updatedTitle,
+        },
+      };
+    });
+    
+    return true;
+  }, [gameState]);
+
+  const getCourtMembers = useCallback((): Character[] => {
+    if (!gameState) return [];
+    return Object.values(gameState.characters).filter(
+      c => c.alive && c.atCourt === gameState.playerCharacterId && c.id !== gameState.playerCharacterId
+    );
+  }, [gameState]);
+
+  const getNonDynasticCharacters = useCallback((): Character[] => {
+    if (!gameState) return [];
+    return Object.values(gameState.characters).filter(
+      c => c.alive && c.dynastyId !== gameState.playerDynastyId
+    );
+  }, [gameState]);
+
   useEffect(() => {
     if (!isRunning || !gameState) {
       if (tickRef.current) {
@@ -698,17 +837,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
         startNewGame,
         loadGame,
         saveGame,
+        exitGame,
         setSpeed,
         selectCharacter,
         setActiveScreen,
         resolveEvent,
         arrangeMarriage,
+        inviteToCourt,
+        banishFromCourt,
+        grantTitle,
         getCharacter,
         getDynasty,
         getTitle,
         getPlayerCharacter,
         getPlayerDynasty,
         getDynastyMembers,
+        getCourtMembers,
+        getNonDynasticCharacters,
         getChildren,
         getSpouses,
         getParents,

@@ -9,6 +9,7 @@ import { GameHeader } from '@/components/GameHeader';
 import { AppSidebar } from '@/components/AppSidebar';
 import { FamilyTree } from '@/components/FamilyTree';
 import { CharacterSheet } from '@/components/CharacterSheet';
+import { CourtScreen } from '@/components/CourtScreen';
 import { Timeline } from '@/components/Timeline';
 import { SuccessionScreen } from '@/components/SuccessionScreen';
 import { HoldingsScreen } from '@/components/HoldingsScreen';
@@ -20,6 +21,7 @@ function GameRouter() {
     <Switch>
       <Route path="/" component={FamilyTree} />
       <Route path="/character" component={CharacterSheet} />
+      <Route path="/court" component={CourtScreen} />
       <Route path="/timeline" component={Timeline} />
       <Route path="/succession" component={SuccessionScreen} />
       <Route path="/holdings" component={HoldingsScreen} />

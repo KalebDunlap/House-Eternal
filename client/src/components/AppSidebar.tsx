@@ -19,11 +19,13 @@ import {
   Clock, 
   Crown, 
   Castle,
+  Users,
 } from 'lucide-react';
 
 const menuItems = [
   { path: '/', label: 'Family Tree', icon: GitBranch },
   { path: '/character', label: 'Character', icon: User },
+  { path: '/court', label: 'Court & Nobles', icon: Users },
   { path: '/timeline', label: 'Timeline', icon: Clock },
   { path: '/succession', label: 'Succession', icon: Crown },
   { path: '/holdings', label: 'Holdings', icon: Castle },

@@ -52,6 +52,7 @@ export interface Character {
   pregnancyWeeksRemaining: number;
   isRuler: boolean;
   primaryTitleId: string | null;
+  atCourt: string | null;
 }
 
 export interface Dynasty {

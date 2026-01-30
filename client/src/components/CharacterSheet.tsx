@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Heart, 
   Baby, 
@@ -19,7 +20,11 @@ import {
   Users,
   Crown,
   ArrowLeft,
-  Skull
+  Skull,
+  UserPlus,
+  UserMinus,
+  Home,
+  Castle
 } from 'lucide-react';
 
 export function CharacterSheet() {
@@ -31,8 +36,19 @@ export function CharacterSheet() {
     getChildren, 
     getSpouses, 
     getParents,
-    setActiveScreen 
+    setActiveScreen,
+    inviteToCourt,
+    banishFromCourt,
+    grantTitle
   } = useGame();
+  const { toast } = useToast();
+
+  const getPlayerTitles = () => {
+    if (!gameState) return [];
+    return Object.values(gameState.titles).filter(
+      t => t.holderId === gameState.playerCharacterId && t.rank !== 'empire' && t.rank !== 'kingdom'
+    );
+  };
 
   if (!gameState) {
     return (
@@ -172,6 +188,84 @@ export function CharacterSheet() {
                 {character.alive && character.spouseIds.length === 0 && getCharacterAge(character, gameState.currentWeek) >= 16 && (
                   <div className="mt-4">
                     <MarriageDialog character={character} />
+                  </div>
+                )}
+
+                {character.alive && character.id !== gameState.playerCharacterId && character.dynastyId !== gameState.playerDynastyId && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {character.atCourt === gameState.playerCharacterId ? (
+                      <>
+                        <Badge variant="outline" className="text-xs">
+                          <Home className="h-2 w-2 mr-1" />
+                          At Your Court
+                        </Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            const success = banishFromCourt(character.id);
+                            if (success) {
+                              toast({
+                                title: 'Banished',
+                                description: `${character.name} has been banished from your court.`,
+                              });
+                            }
+                          }}
+                          data-testid="button-banish"
+                        >
+                          <UserMinus className="h-3 w-3 mr-1" />
+                          Banish from Court
+                        </Button>
+                        {getPlayerTitles().length > 0 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const titles = getPlayerTitles();
+                              if (titles.length > 0) {
+                                const title = titles[0];
+                                const success = grantTitle(character.id, title.id);
+                                if (success) {
+                                  toast({
+                                    title: 'Title Granted',
+                                    description: `${character.name} is now the holder of ${title.name}.`,
+                                  });
+                                }
+                              }
+                            }}
+                            data-testid="button-grant-title"
+                          >
+                            <Castle className="h-3 w-3 mr-1" />
+                            Grant Title
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const success = inviteToCourt(character.id);
+                          if (success) {
+                            toast({
+                              title: 'Invitation Accepted',
+                              description: `${character.name} has joined your court.`,
+                            });
+                          } else {
+                            toast({
+                              title: 'Invitation Declined',
+                              description: 'They declined your invitation.',
+                              variant: 'destructive',
+                            });
+                          }
+                        }}
+                        data-testid="button-invite"
+                      >
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Invite to Court
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Portrait } from './Portrait';
-import { Pause, Play, FastForward, Save, Moon, Sun } from 'lucide-react';
+import { Pause, Play, FastForward, Save, Moon, Sun, LogOut } from 'lucide-react';
 
 export function GameHeader() {
-  const { gameState, setSpeed, saveGame, getPlayerCharacter, getPlayerDynasty } = useGame();
+  const { gameState, setSpeed, saveGame, exitGame, getPlayerCharacter, getPlayerDynasty } = useGame();
   const { theme, toggleTheme } = useTheme();
 
   if (!gameState) return null;
@@ -114,6 +114,16 @@ export function GameHeader() {
             data-testid="button-theme"
           >
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-sidebar-foreground"
+            onClick={exitGame}
+            data-testid="button-exit"
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </div>
