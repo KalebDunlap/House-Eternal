@@ -1,0 +1,203 @@
+Build a browser-based medieval dynasty simulator inspired by Crusader Kings, with a primary focus on the family tree. The game name is: “House Eternal”. The subtitle is “A Dynasty Simulator” The game must be single-player, and save/load entirely via localStorage (no backend, no database).
+
+Core Concept
+This is a sandbox dynasty survival game. The player’s goal is to keep their dynasty alive for as long as possible.
+If the player’s dynasty has no living legitimate members, the game ends.
+There is no “win” state — longevity and prestige are the measure of success.
+
+Time & Simulation
+The game runs in real time with pause.
+Target speed: 1 real second = 1 in-game week.
+Include controls: Pause / 1x / 2x / 4x.
+Two-Tier Simulation System (IMPORTANT)
+To support ~700–800 living characters without performance issues:
+1) Active Simulation (Weekly, high detail)
+Runs every week for:
+Player ruler
+Player dynasty members (within ~2 generations)
+Player’s court and direct vassals
+All independent rulers (top title holders)
+Spouses and primary heirs of rulers
+Weekly checks include:
+Aging
+Pregnancy progress & childbirth
+Health/death
+Events
+Opinion changes
+Succession handling
+2) Background Simulation (Batched, low detail)
+Runs every 8–12 in-game weeks for all other characters:
+Pair off eligible nobles for marriages
+Generate children probabilistically
+Roll deaths based on age/health
+Handle inheritance when title holders die
+Background characters must still marry, reproduce, inherit, and go extinct, so the world evolves even if the player ignores it.
+Characters move from background → active if they:
+Inherit a title
+Marry into the player dynasty
+Become a vassal or rival
+Gain a major claim or title
+
+Characters (Medium Detail)
+Each character must have:
+id
+name
+sex
+culture
+dynastyId
+birth date (or age in weeks)
+alive/dead status + death date
+parents (motherId, fatherId)
+spouses (list)
+children (list)
+traits (list)
+skills: diplomacy, martial, stewardship, intrigue, learning
+health
+fertility
+opinion values for close relations
+portrait data (SVG seed)
+Dead characters:
+Cannot be interacted with
+Remain visible in the family tree
+Are clearly marked as deceased
+
+Portraits (SVG Only)
+Use procedural layered SVG portraits, generated deterministically from a seed.
+Portrait system requirements:
+Portraits are assembled from layers:
+background
+head shape
+eyes
+hair
+beard (optional)
+clothing collar
+headwear (rank-based: crown, circlet, etc.)
+Recolor layers based on:
+culture
+rank/title
+Each character’s portrait must be:
+consistent across sessions
+cached in the save data
+Portraits must render efficiently in the family tree
+
+Family Tree (Main View)
+This is the primary interface.
+Requirements:
+Vertical layout (top-down generations)
+Collapsible branches
+Clickable character nodes
+Each node displays:
+SVG portrait
+name
+age
+primary title/rank (if any)
+Deceased indicator (MANDATORY):
+Dead characters must be visually distinct:
+Small skull icon, cross, or similar symbol next to portrait
+Optional grayscale or reduced opacity
+Dead characters:
+Cannot be selected for actions
+Still show full info when clicked (read-only)
+
+Core Gameplay Loop
+The player spends most of their time:
+Arranging dynastic marriages
+Managing heirs and succession
+Responding to events
+Managing titles, holdings, and vassals
+
+Marriage & Children
+Marriage eligibility:
+Age threshold (e.g. 16)
+Monogamous (for version 1)
+Marriage effects:
+Opinion modifiers
+Dynasty connections
+Births:
+Automatic chance for married couples
+Pregnancy lasts ~40 weeks
+Children inherit dynasty and culture (default rules)
+Log all births and marriages
+
+Titles, Holdings & Vassals
+Implement titles from version 1:
+Titles:
+id, name, rank (barony → empire)
+holderId
+succession law
+claims list
+de jure liege (optional)
+Holdings:
+Income
+Levies
+Development (simplified numeric)
+Vassals:
+Vassals are title holders beneath the player
+Each vassal has:
+opinion score
+income/levy contribution
+
+Succession & Inheritance
+Default succession law: primogeniture
+Allow changing succession law (some alternatives)
+On death:
+Transfer titles correctly
+Update vassals/lieges
+Trigger inheritance events
+Update family tree immediately
+
+Events System (CK-Style)
+The game must be event-driven.
+Event engine:
+Events have:
+triggers
+weight
+text
+optional player choices
+stat effects
+Required event categories:
+marriage offers
+childbirth complications
+illness & plague
+scandal/rumors
+assassination attempts
+inheritance disputes
+feasts/tournaments
+Events must have real statistical impact (health, fertility, skills, opinions, prestige).
+
+UI Screens
+Required screens:
+Family Tree (main)
+Character Sheet
+Timeline / Event Log
+Succession Screen
+Holdings & Vassals Screen
+UI should feel like a strategy game dashboard, with panels, tabs, icons, and tooltips.
+
+Names & Cultures
+Procedural names from culture-based lists
+At least 4 cultures (e.g. Anglo, Frankish, Norse, Iberian)
+Support male/female given names and dynasty names
+
+Saving & Loading
+Entire game state saved to localStorage
+Autosave every 2 in-game years
+Manual Save / Load buttons
+Portrait seeds and deceased status must persist
+
+Performance Constraints
+Must remain responsive with ~700–800 living characters
+Avoid rendering entire family tree at once
+Avoid expensive per-tick loops
+Use batching and scoped updates
+
+Deliverable
+Produce a playable game with:
+New game generation
+Real-time simulation with pause/speed
+Living/deceased family tree visualization
+Marriages, births, deaths, inheritance
+Event system
+Holdings/vassals
+Save/load with autosave
+Clear comments explaining data structures and extension points
