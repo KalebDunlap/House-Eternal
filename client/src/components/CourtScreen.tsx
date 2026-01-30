@@ -247,6 +247,9 @@ export function CourtScreen() {
                     Grant Title
                   </Button>
                 )}
+                {isAtCourt && canArrangeMarriage(character) && (
+                  <MarriageDialog character={character} />
+                )}
               </div>
             </div>
           </div>

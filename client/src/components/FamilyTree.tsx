@@ -290,9 +290,10 @@ export function FamilyTree() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="flex justify-center p-8 min-w-max">
-          <TreeNode
+      <ScrollArea className="flex-1 overflow-auto">
+        <div className="flex justify-center p-20 min-w-max min-h-max bg-[#F3E6D5]/10">
+          <div className="cursor-grab active:cursor-grabbing">
+            <TreeNode
             character={dynastyFounder}
             currentWeek={gameState.currentWeek}
             titles={gameState.titles}
