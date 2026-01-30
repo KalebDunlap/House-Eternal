@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, Skull, Heart, Users } from 'lucide-react';
-import { useState, useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback } from 'react';
 
 interface TreeNodeProps {
   character: Character;
@@ -182,31 +182,18 @@ function TreeNode({
 }
 
 export function FamilyTree() {
-  const { gameState, selectCharacter } = useGame();
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [showDeceased, setShowDeceased] = useState(true);
-
-  const toggleExpand = useCallback((id: string) => {
-    setExpandedNodes(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
+  const { gameState, selectCharacter, treeExpandedNodes, setTreeExpandedNodes, toggleTreeNode } = useGame();
+  const [showDeceased, setShowDeceased] = React.useState(true);
 
   const expandAll = useCallback(() => {
     if (!gameState) return;
     const allIds = Object.keys(gameState.characters);
-    setExpandedNodes(new Set(allIds));
-  }, [gameState]);
+    setTreeExpandedNodes(new Set(allIds));
+  }, [gameState, setTreeExpandedNodes]);
 
   const collapseAll = useCallback(() => {
-    setExpandedNodes(new Set());
-  }, []);
+    setTreeExpandedNodes(new Set());
+  }, [setTreeExpandedNodes]);
 
   const dynastyFounder = useMemo(() => {
     if (!gameState) return null;
@@ -299,8 +286,8 @@ export function FamilyTree() {
             titles={gameState.titles}
             characters={gameState.characters}
             onSelect={selectCharacter}
-            expandedNodes={expandedNodes}
-            onToggleExpand={toggleExpand}
+            expandedNodes={treeExpandedNodes}
+            onToggleExpand={toggleTreeNode}
             showDeceased={showDeceased}
             depth={0}
             playerDynastyId={gameState.playerDynastyId}

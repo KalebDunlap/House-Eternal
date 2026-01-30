@@ -35,6 +35,9 @@ interface GameContextType {
   getParents: (characterId: string) => { mother: Character | undefined; father: Character | undefined };
   hasSave: () => boolean;
   deleteSave: () => void;
+  treeExpandedNodes: Set<string>;
+  setTreeExpandedNodes: (nodes: Set<string>) => void;
+  toggleTreeNode: (id: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -63,7 +66,7 @@ function generatePortrait(seed?: number): PortraitData {
     eyeStyle: Math.floor(rand() * 3),
     hairStyle: Math.floor(rand() * 4),
     hairColor: Math.floor(rand() * 8),
-    skinTone: Math.floor(rand() * 6),
+    skinTone: Math.floor(rand() * 5),
     beardStyle: Math.floor(rand() * 4),
     clothingStyle: Math.floor(rand() * 3),
   };
@@ -189,8 +192,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
   const [activeScreen, setActiveScreen] = useState<'tree' | 'character' | 'timeline' | 'succession' | 'holdings' | 'court'>('tree');
+  const [treeExpandedNodes, setTreeExpandedNodes] = useState<Set<string>>(new Set());
   const tickRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
+
+  const toggleTreeNode = useCallback((id: string) => {
+    setTreeExpandedNodes(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
 
   const isRunning = gameState !== null && gameState.speed > 0 && !gameState.gameOver;
 
@@ -245,6 +261,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     
     ruler.spouseIds.push(spouse.id);
     spouse.spouseIds.push(ruler.id);
+    spouse.atCourt = ruler.id;
     
     const child1 = createCharacter(
       generateName(culture, 'male'),
@@ -268,6 +285,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     
     ruler.childrenIds.push(child1.id, child2.id);
     spouse.childrenIds.push(child1.id, child2.id);
+    child1.atCourt = ruler.id;
+    child2.atCourt = ruler.id;
     
     const characters: Record<string, Character> = {
       [ruler.id]: ruler,
@@ -859,6 +878,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
         getParents,
         hasSave,
         deleteSave,
+        treeExpandedNodes,
+        setTreeExpandedNodes,
+        toggleTreeNode,
       }}
     >
       {children}

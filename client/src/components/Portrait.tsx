@@ -11,7 +11,7 @@ interface PortraitProps {
 }
 
 const SKIN_TONES = [
-  '#FFDFC4', '#F0C8A8', '#D4A574', '#C68642', '#8D5524', '#5C3A21'
+  '#FFECD8', '#FFE4D0', '#FFDFC4', '#F5D5C0', '#F0D0B8'
 ];
 
 const HAIR_COLORS = [
