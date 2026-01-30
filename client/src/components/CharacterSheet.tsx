@@ -240,9 +240,7 @@ export function CharacterSheet() {
                             Grant Title
                           </Button>
                         )}
-                        {character.spouseIds.length === 0 && age >= 16 && (
-                          <MarriageDialog character={character} />
-                        )}
+                        <MarriageDialog character={character} />
                       </>
                     ) : (
                       <Button
