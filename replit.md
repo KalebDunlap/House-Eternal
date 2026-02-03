@@ -4,6 +4,15 @@
 A browser-based medieval dynasty simulator inspired by Crusader Kings. The game focuses on family tree management, succession, and keeping a dynasty alive through generations. All game state is saved/loaded via localStorage - no backend database required.
 
 ## Recent Changes
+- **February 2026**: Major succession system overhaul
+  - Fixed primogeniture to properly show grandchildren before younger siblings (depth-first inheritance)
+  - Added title inheritance on character death - titles pass to heirs based on succession law
+  - When player dies, automatically transition to heir with proper title inheritance
+  - Other dynasties now have titles (3 kingdoms, 5 duchies, 7 counties) at game start
+- **February 2026**: Court & Nobles screen improvements
+  - Fixed scrolling to show all characters
+  - Added filter buttons: All, Kings, Dukes, Counts, Untitled, Eligible for Marriage
+  - Character cards now display title rank badges (King, Duke, Count, etc.)
 - **January 2026**: Added Court & Nobles system - view and interact with non-dynastic characters, invite to court, banish, grant titles
 - **January 2026**: Added exit button to return to main menu from gameplay
 - **January 2026**: Added character interaction options with prestige-based acceptance probability

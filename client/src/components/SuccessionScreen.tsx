@@ -13,12 +13,12 @@ const SUCCESSION_LAWS: { id: SuccessionLaw; name: string; description: string }[
   { 
     id: 'primogeniture', 
     name: 'Primogeniture', 
-    description: 'The eldest child inherits all titles' 
+    description: 'The eldest child and their descendants inherit before younger children (depth-first)' 
   },
   { 
     id: 'ultimogeniture', 
     name: 'Ultimogeniture', 
-    description: 'The youngest child inherits all titles' 
+    description: 'The youngest child and their descendants inherit before older children' 
   },
   { 
     id: 'gavelkind', 
@@ -28,38 +28,20 @@ const SUCCESSION_LAWS: { id: SuccessionLaw; name: string; description: string }[
   { 
     id: 'elective', 
     name: 'Elective', 
-    description: 'Vassals vote on the next ruler' 
+    description: 'Vassals vote on the next ruler based on diplomacy and stewardship' 
   },
 ];
 
 export function SuccessionScreen() {
-  const { gameState, selectCharacter, getPlayerCharacter, getChildren } = useGame();
+  const { gameState, selectCharacter, getPlayerCharacter, getSuccessionLine } = useGame();
   const [selectedLaw, setSelectedLaw] = useState<SuccessionLaw>('primogeniture');
 
   const player = getPlayerCharacter();
 
   const successionLine = useMemo(() => {
     if (!gameState || !player) return [];
-
-    const children = getChildren(player.id).filter(c => c.alive);
-    
-    switch (selectedLaw) {
-      case 'primogeniture':
-        return children.sort((a, b) => a.birthWeek - b.birthWeek);
-      case 'ultimogeniture':
-        return children.sort((a, b) => b.birthWeek - a.birthWeek);
-      case 'gavelkind':
-        return children.sort((a, b) => a.birthWeek - b.birthWeek);
-      case 'elective':
-        return children.sort((a, b) => {
-          const aScore = a.skills.diplomacy + a.skills.stewardship;
-          const bScore = b.skills.diplomacy + b.skills.stewardship;
-          return bScore - aScore;
-        });
-      default:
-        return children;
-    }
-  }, [gameState, player, selectedLaw, getChildren]);
+    return getSuccessionLine(player.id, selectedLaw);
+  }, [gameState, player, selectedLaw, getSuccessionLine]);
 
   if (!gameState || !player) {
     return (
@@ -163,44 +145,65 @@ export function SuccessionScreen() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {successionLine.map((heir, index) => (
-                    <div key={heir.id}>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start gap-3 h-auto p-3"
-                        onClick={() => selectCharacter(heir.id)}
-                        data-testid={`heir-${index}`}
-                      >
-                        <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                          {index + 1}
-                        </div>
-                        <Portrait
-                          portrait={heir.portrait}
-                          sex={heir.sex}
-                          culture={heir.culture}
-                          alive={heir.alive}
-                          size="sm"
-                        />
-                        <div className="flex-1 text-left">
-                          <p className="font-medium">{heir.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            Age {getCharacterAge(heir, gameState.currentWeek)} | 
-                            {' '}{heir.sex === 'male' ? 'Son' : 'Daughter'}
-                          </p>
-                        </div>
-                        {index === 0 && (
-                          <Badge className="bg-accent text-accent-foreground">
-                            Heir Apparent
-                          </Badge>
+                  {successionLine.map((heir, index) => {
+                    // Determine relationship
+                    let relationship = '';
+                    if (heir.fatherId === player.id || heir.motherId === player.id) {
+                      relationship = heir.sex === 'male' ? 'Son' : 'Daughter';
+                    } else {
+                      // Check if grandchild
+                      const father = heir.fatherId ? gameState.characters[heir.fatherId] : null;
+                      const mother = heir.motherId ? gameState.characters[heir.motherId] : null;
+                      const isGrandchild = 
+                        (father && (father.fatherId === player.id || father.motherId === player.id)) ||
+                        (mother && (mother.fatherId === player.id || mother.motherId === player.id));
+                      
+                      if (isGrandchild) {
+                        relationship = heir.sex === 'male' ? 'Grandson' : 'Granddaughter';
+                      } else {
+                        relationship = heir.sex === 'male' ? 'Descendant (M)' : 'Descendant (F)';
+                      }
+                    }
+                    
+                    return (
+                      <div key={heir.id}>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start gap-3 h-auto p-3"
+                          onClick={() => selectCharacter(heir.id)}
+                          data-testid={`heir-${index}`}
+                        >
+                          <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <Portrait
+                            portrait={heir.portrait}
+                            sex={heir.sex}
+                            culture={heir.culture}
+                            alive={heir.alive}
+                            size="sm"
+                          />
+                          <div className="flex-1 text-left">
+                            <p className="font-medium">{heir.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Age {getCharacterAge(heir, gameState.currentWeek)} | 
+                              {' '}{relationship}
+                            </p>
+                          </div>
+                          {index === 0 && (
+                            <Badge className="bg-accent text-accent-foreground">
+                              Heir Apparent
+                            </Badge>
+                          )}
+                        </Button>
+                        {index < successionLine.length - 1 && (
+                          <div className="flex justify-center py-1">
+                            <ArrowDown className="h-4 w-4 text-muted-foreground" />
+                          </div>
                         )}
-                      </Button>
-                      {index < successionLine.length - 1 && (
-                        <div className="flex justify-center py-1">
-                          <ArrowDown className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

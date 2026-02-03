@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useGame } from '@/lib/gameContext';
-import { getCharacterAge, CULTURES, type Character } from '@/lib/gameTypes';
+import { getCharacterAge, CULTURES, type Character, type TitleRank, TITLE_RANK_NAMES } from '@/lib/gameTypes';
 import { Portrait } from './Portrait';
 import { MarriageDialog } from './MarriageDialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -17,16 +16,19 @@ import {
   Heart,
   Crown,
   Home,
-  Castle
+  Castle,
+  Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
+
+type RankFilter = 'all' | 'kingdom' | 'duchy' | 'county' | 'barony' | 'untitled' | 'marriage';
 
 export function CourtScreen() {
   const { 
     gameState, 
     getCourtMembers, 
-    getNonDynasticCharacters,
+    getAllCharacters,
     inviteToCourt,
     banishFromCourt,
     grantTitle,
@@ -59,30 +61,56 @@ export function CourtScreen() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState('court');
+  const [rankFilter, setRankFilter] = useState<RankFilter>('all');
 
   const courtMembers = useMemo(() => getCourtMembers(), [getCourtMembers]);
-  const allNobles = useMemo(() => getNonDynasticCharacters(), [getNonDynasticCharacters]);
+  const allNobles = useMemo(() => {
+    if (!gameState) return [];
+    // Get all living characters except player dynasty members
+    return getAllCharacters().filter(c => c.dynastyId !== gameState.playerDynastyId);
+  }, [gameState, getAllCharacters]);
   const playerChar = getPlayerCharacter();
 
+  const getCharacterRank = (char: Character): TitleRank | null => {
+    if (!gameState || !char.primaryTitleId) return null;
+    const title = gameState.titles[char.primaryTitleId];
+    return title?.rank || null;
+  };
+
+  const applyFilters = (characters: Character[]): Character[] => {
+    let result = characters;
+    
+    // Apply search filter
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      result = result.filter(c => {
+        const dynasty = c.dynastyId && gameState?.dynasties[c.dynastyId];
+        const dynastyName = dynasty ? dynasty.name.toLowerCase() : '';
+        return c.name.toLowerCase().includes(searchLower) || dynastyName.includes(searchLower);
+      });
+    }
+    
+    // Apply rank filter
+    if (rankFilter !== 'all') {
+      if (rankFilter === 'marriage') {
+        result = result.filter(c => canArrangeMarriage(c));
+      } else if (rankFilter === 'untitled') {
+        result = result.filter(c => !c.primaryTitleId);
+      } else {
+        result = result.filter(c => getCharacterRank(c) === rankFilter);
+      }
+    }
+    
+    return result;
+  };
+
   const filteredCourt = useMemo(() => {
-    if (!search.trim()) return courtMembers;
-    const searchLower = search.toLowerCase();
-    return courtMembers.filter(c => {
-      const dynasty = c.dynastyId && gameState?.dynasties[c.dynastyId];
-      const dynastyName = dynasty ? dynasty.name.toLowerCase() : '';
-      return c.name.toLowerCase().includes(searchLower) || dynastyName.includes(searchLower);
-    });
-  }, [courtMembers, search, gameState]);
+    return applyFilters(courtMembers);
+  }, [courtMembers, search, gameState, rankFilter]);
 
   const filteredNobles = useMemo(() => {
-    if (!search.trim()) return allNobles;
-    const searchLower = search.toLowerCase();
-    return allNobles.filter(c => {
-      const dynasty = c.dynastyId && gameState?.dynasties[c.dynastyId];
-      const dynastyName = dynasty ? dynasty.name.toLowerCase() : '';
-      return c.name.toLowerCase().includes(searchLower) || dynastyName.includes(searchLower);
-    });
-  }, [allNobles, search, gameState]);
+    return applyFilters(allNobles);
+  }, [allNobles, search, gameState, rankFilter]);
 
   const handleInvite = (characterId: string) => {
     const success = inviteToCourt(characterId);
@@ -142,9 +170,13 @@ export function CourtScreen() {
     const age = getCharacterAge(character, gameState.currentWeek);
     const culture = CULTURES[character.culture];
     const dynasty = character.dynastyId ? gameState.dynasties[character.dynastyId] : null;
-    const hasTitle = character.primaryTitleId && gameState.titles[character.primaryTitleId];
+    const title = character.primaryTitleId ? gameState.titles[character.primaryTitleId] : null;
+    const hasTitle = !!title;
     const isMarried = character.spouseIds.length > 0;
     const isAtCourt = character.atCourt === gameState.playerCharacterId;
+    
+    // Get title rank name
+    const titleRankName = title ? TITLE_RANK_NAMES[title.rank][character.sex] : null;
 
     return (
       <Card className="hover-elevate cursor-pointer" data-testid={`character-card-${character.id}`}>
@@ -155,7 +187,7 @@ export function CourtScreen() {
                 portrait={character.portrait}
                 sex={character.sex}
                 culture={character.culture}
-                rank={hasTitle ? gameState.titles[character.primaryTitleId!].rank : null}
+                rank={title?.rank || null}
                 alive={character.alive}
                 size="md"
               />
@@ -169,7 +201,12 @@ export function CourtScreen() {
                 >
                   {character.name}
                 </span>
-                {hasTitle && <Crown className="h-3 w-3 text-primary" />}
+                {hasTitle && (
+                  <Badge variant="secondary" className="text-xs">
+                    <Crown className="h-2 w-2 mr-1" />
+                    {titleRankName}
+                  </Badge>
+                )}
                 {isAtCourt && (
                   <Badge variant="outline" className="text-xs">
                     <Home className="h-2 w-2 mr-1" />
@@ -257,49 +294,74 @@ export function CourtScreen() {
     );
   };
 
+  const filterButtons: { value: RankFilter; label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'kingdom', label: 'Kings' },
+    { value: 'duchy', label: 'Dukes' },
+    { value: 'county', label: 'Counts' },
+    { value: 'untitled', label: 'Untitled' },
+    { value: 'marriage', label: 'Eligible for Marriage' },
+  ];
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-3 border-b bg-card">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="px-4 py-3 border-b bg-card shrink-0">
         <h2 className="text-lg font-serif font-semibold" data-testid="text-court-title">Court & Nobles</h2>
         <p className="text-sm text-muted-foreground">
           Manage your court and interact with other nobles
         </p>
       </div>
 
-      <div className="p-4 border-b">
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name or dynasty..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-            data-testid="input-search-nobles"
-          />
+      <div className="p-4 border-b shrink-0">
+        <div className="flex flex-col gap-3">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or dynasty..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-nobles"
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            {filterButtons.map(btn => (
+              <Button
+                key={btn.value}
+                variant={rankFilter === btn.value ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setRankFilter(btn.value)}
+                data-testid={`filter-${btn.value}`}
+              >
+                {btn.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-        <div className="px-4 border-b">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+        <div className="px-4 border-b shrink-0">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="court" data-testid="tab-court">
               <Home className="h-4 w-4 mr-2" />
-              Your Court ({courtMembers.length})
+              Your Court ({filteredCourt.length})
             </TabsTrigger>
             <TabsTrigger value="nobles" data-testid="tab-nobles">
               <Users className="h-4 w-4 mr-2" />
-              All Nobles ({allNobles.length})
+              All Nobles ({filteredNobles.length})
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <ScrollArea className="flex-1">
-          <TabsContent value="court" className="p-4 mt-0">
+        <div className="flex-1 overflow-auto">
+          <TabsContent value="court" className="p-4 mt-0 min-h-full">
             {filteredCourt.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground" data-testid="text-empty-court">
-                  {search ? 'No court members match your search' : 'Your court is empty'}
+                  {search || rankFilter !== 'all' ? 'No court members match your filters' : 'Your court is empty'}
                 </p>
                 <p className="text-sm text-muted-foreground/60 mt-1">
                   Invite nobles from the "All Nobles" tab
@@ -314,12 +376,12 @@ export function CourtScreen() {
             )}
           </TabsContent>
 
-          <TabsContent value="nobles" className="p-4 mt-0">
+          <TabsContent value="nobles" className="p-4 mt-0 min-h-full">
             {filteredNobles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
                 <p className="text-muted-foreground">
-                  {search ? 'No nobles match your search' : 'No other nobles exist'}
+                  {search || rankFilter !== 'all' ? 'No nobles match your filters' : 'No other nobles exist'}
                 </p>
               </div>
             ) : (
@@ -330,7 +392,7 @@ export function CourtScreen() {
               </div>
             )}
           </TabsContent>
-        </ScrollArea>
+        </div>
       </Tabs>
     </div>
   );
