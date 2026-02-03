@@ -248,6 +248,41 @@ export function FamilyTree() {
     );
   }
 
+  const [isPanning, setIsPanning] = React.useState(false);
+  const [startX, setStartX] = React.useState(0);
+  const [startY, setStartY] = React.useState(0);
+  const [scrollLeft, setScrollLeft] = React.useState(0);
+  const [scrollTop, setScrollTop] = React.useState(0);
+  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return;
+    setIsPanning(true);
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
+    setStartY(e.pageY - scrollContainerRef.current.offsetTop);
+    setScrollLeft(scrollContainerRef.current.scrollLeft);
+    setScrollTop(scrollContainerRef.current.scrollTop);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isPanning || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const y = e.pageY - scrollContainerRef.current.offsetTop;
+    const walkX = (x - startX) * 1.5;
+    const walkY = (y - startY) * 1.5;
+    scrollContainerRef.current.scrollLeft = scrollLeft - walkX;
+    scrollContainerRef.current.scrollTop = scrollTop - walkY;
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPanning(false);
+  };
+
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b bg-card">
@@ -290,9 +325,16 @@ export function FamilyTree() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 w-full h-full">
+      <div 
+        ref={scrollContainerRef}
+        className="flex-1 w-full h-full overflow-auto cursor-grab active:cursor-grabbing select-none"
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
         <div className="p-40 bg-[#F3E6D5]/10 min-w-max min-h-max flex justify-center items-start">
-          <div className="cursor-grab active:cursor-grabbing">
+          <div>
             <TreeNode
               character={dynastyFounder}
               currentWeek={gameState.currentWeek}
@@ -307,7 +349,7 @@ export function FamilyTree() {
             />
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
