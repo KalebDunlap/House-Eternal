@@ -187,7 +187,7 @@ export function MainMenu() {
         )}
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          Inspired by Crusader Kings | All progress saved locally in your browser
+          A Mole Rat Studios original game | All progress saved locally in your browser
         </p>
       </div>
     </div>

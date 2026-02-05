@@ -14,7 +14,7 @@ interface GameContextType {
   loadGame: () => boolean;
   saveGame: () => void;
   exitGame: () => void;
-  setSpeed: (speed: 0 | 1 | 2 | 4) => void;
+  setSpeed: (speed: 0 | 1 | 2 | 4 | 8) => void;
   selectCharacter: (id: string | null) => void;
   setActiveScreen: (screen: 'tree' | 'character' | 'timeline' | 'succession' | 'holdings' | 'court') => void;
   resolveEvent: (eventId: string, choiceIndex: number) => void;
@@ -465,7 +465,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setActiveScreen('tree');
   }, []);
 
-  const setSpeed = useCallback((speed: 0 | 1 | 2 | 4) => {
+  const setSpeed = useCallback((speed: 0 | 1 | 2 | 4 | 8) => {
     setGameState(prev => prev ? { ...prev, speed } : null);
   }, []);
 

@@ -114,7 +114,7 @@ export interface EventEffect {
 
 export interface GameState {
   currentWeek: number;
-  speed: 0 | 1 | 2 | 4;
+  speed: 0 | 1 | 2 | 4 | 8;
   playerDynastyId: string;
   playerCharacterId: string;
   characters: Record<string, Character>;

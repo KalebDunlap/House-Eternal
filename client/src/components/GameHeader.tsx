@@ -84,9 +84,20 @@ export function GameHeader() {
               variant={gameState.speed === 4 ? 'default' : 'ghost'}
               onClick={() => setSpeed(4)}
               data-testid="button-speed-4"
+              className="relative"
             >
               <FastForward className="h-4 w-4" />
-              <span className="absolute text-[8px] font-bold">2x</span>
+              <span className="absolute -bottom-1 -right-1 text-[8px] font-bold bg-primary text-primary-foreground rounded-full px-1">2x</span>
+            </Button>
+            <Button
+              size="icon"
+              variant={gameState.speed === 8 ? 'default' : 'ghost'}
+              onClick={() => setSpeed(8)}
+              data-testid="button-speed-8"
+              className="relative"
+            >
+              <FastForward className="h-4 w-4" />
+              <span className="absolute -bottom-1 -right-1 text-[8px] font-bold bg-primary text-primary-foreground rounded-full px-1">4x</span>
             </Button>
           </div>
 
