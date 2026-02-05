@@ -4,6 +4,13 @@
 A browser-based medieval dynasty simulator inspired by Crusader Kings. The game focuses on family tree management, succession, and keeping a dynasty alive through generations. All game state is saved/loaded via localStorage - no backend database required.
 
 ## Recent Changes
+- **February 2026**: Major gameplay systems overhaul
+  - **Succession**: Fixed recursive player succession - always switches to living heir on any player death
+  - **Population control**: Children capped at 4 per couple, 10% child mortality/year until age 5, 10% maternal mortality per birth
+  - **Dynasty inheritance**: Children inherit father's dynasty by default, matrilineal marriages pass mother's dynasty
+  - **Court residency**: Children auto-join parent's court, wife moves to husband's court on marriage (unless she's a ruler)
+  - **Feudal hierarchy**: Liege relationships visible on character sheet, button to view any dynasty's family tree
+  - **Navigation**: Fixed Back to Family Tree button using wouter navigation
 - **February 2026**: Family tree connector alignment fix
   - Uses SVG overlay with position:absolute inside scrollable container
   - Connector coordinates calculated using getBoundingClientRect with proper viewport-to-container conversion

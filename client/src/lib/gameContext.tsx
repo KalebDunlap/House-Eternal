@@ -18,7 +18,8 @@ interface GameContextType {
   selectCharacter: (id: string | null) => void;
   setActiveScreen: (screen: 'tree' | 'character' | 'timeline' | 'succession' | 'holdings' | 'court') => void;
   resolveEvent: (eventId: string, choiceIndex: number) => void;
-  arrangeMarriage: (char1Id: string, char2Id: string) => boolean;
+  arrangeMarriage: (char1Id: string, char2Id: string, matrilineal?: boolean) => boolean;
+  viewCharacterTree: (characterId: string) => void;
   inviteToCourt: (characterId: string) => boolean;
   banishFromCourt: (characterId: string) => boolean;
   grantTitle: (characterId: string, titleId: string) => boolean;
@@ -110,7 +111,8 @@ function createCharacter(
   dynastyId: string | null,
   birthWeek: number,
   motherId: string | null = null,
-  fatherId: string | null = null
+  fatherId: string | null = null,
+  atCourt: string | null = null
 ): Character {
   return {
     id: generateId(),
@@ -141,7 +143,9 @@ function createCharacter(
     pregnancyWeeksRemaining: 0,
     isRuler: false,
     primaryTitleId: null,
-    atCourt: null,
+    atCourt,
+    liegeId: null,
+    matrilinealMarriage: false,
   };
 }
 
@@ -370,78 +374,108 @@ export function GameProvider({ children }: { children: ReactNode }) {
     
     const otherCultures = Object.keys(CULTURES).filter(c => c !== culture) as CultureId[];
     
-    // Title rank distribution for other dynasties
-    const titleRanks: TitleRank[] = [
-      'kingdom', 'kingdom', 'kingdom', // 3 kingdoms
-      'duchy', 'duchy', 'duchy', 'duchy', 'duchy', // 5 duchies
-      'county', 'county', 'county', 'county', 'county', 'county', 'county' // 7 counties
-    ];
-    
-    for (let i = 0; i < 15; i++) {
-      const otherCulture = otherCultures[i % otherCultures.length];
-      const otherDynastyName = generateDynastyName(otherCulture);
-      
-      const otherRulerSex: Sex = Math.random() > 0.5 ? 'male' : 'female';
-      const otherRuler = createCharacter(
-        generateName(otherCulture, otherRulerSex),
-        otherRulerSex,
-        otherCulture,
+    // Helper to create a ruler with spouse and children
+    function createRulerWithFamily(cultureId: CultureId, title: Title): void {
+      const dynastyName = generateDynastyName(cultureId);
+      const rulerSex: Sex = Math.random() > 0.5 ? 'male' : 'female';
+      const ruler = createCharacter(
+        generateName(cultureId, rulerSex),
+        rulerSex,
+        cultureId,
         null,
         -(18 + Math.floor(Math.random() * 30)) * 52
       );
       
-      const otherDynasty = createDynasty(otherDynastyName, otherRuler.id, otherCulture);
-      otherRuler.dynastyId = otherDynasty.id;
-      otherRuler.isRuler = true;
+      const dynasty = createDynasty(dynastyName, ruler.id, cultureId);
+      ruler.dynastyId = dynasty.id;
+      ruler.isRuler = true;
+      ruler.primaryTitleId = title.id;
+      title.holderId = ruler.id;
       
-      // Create title for this dynasty based on rank distribution
-      const titleRank = titleRanks[i] || 'county';
-      const rankPrefix = titleRank === 'kingdom' ? 'Kingdom of' : titleRank === 'duchy' ? 'Duchy of' : 'County of';
-      const otherTitle = createTitle(`${rankPrefix} ${otherDynastyName}`, titleRank, otherRuler.id);
-      otherRuler.primaryTitleId = otherTitle.id;
+      const holdingPrefix = title.rank === 'kingdom' ? 'Palace' : title.rank === 'duchy' ? 'Fortress' : 'Castle';
+      const holding = createHolding(`${holdingPrefix} ${dynastyName}`, title.id);
       
-      // Create holding for the title
-      const holdingPrefix = titleRank === 'kingdom' ? 'Palace' : titleRank === 'duchy' ? 'Fortress' : 'Castle';
-      const otherHolding = createHolding(`${holdingPrefix} ${otherDynastyName}`, otherTitle.id);
+      allDynasties[dynasty.id] = dynasty;
+      allHoldings[holding.id] = holding;
+      characters[ruler.id] = ruler;
       
-      allDynasties[otherDynasty.id] = otherDynasty;
-      allTitles[otherTitle.id] = otherTitle;
-      allHoldings[otherHolding.id] = otherHolding;
-      
-      characters[otherRuler.id] = otherRuler;
-      
-      const otherSpouseSex: Sex = otherRulerSex === 'male' ? 'female' : 'male';
-      const otherSpouse = createCharacter(
-        generateName(otherCulture, otherSpouseSex),
-        otherSpouseSex,
-        otherCulture,
+      const spouseSex: Sex = rulerSex === 'male' ? 'female' : 'male';
+      const spouse = createCharacter(
+        generateName(cultureId, spouseSex),
+        spouseSex,
+        cultureId,
         null,
         -(16 + Math.floor(Math.random() * 25)) * 52
       );
-      otherSpouse.atCourt = otherRuler.id;
+      spouse.atCourt = ruler.id;
       
-      otherRuler.spouseIds.push(otherSpouse.id);
-      otherSpouse.spouseIds.push(otherRuler.id);
-      characters[otherSpouse.id] = otherSpouse;
+      ruler.spouseIds.push(spouse.id);
+      spouse.spouseIds.push(ruler.id);
+      characters[spouse.id] = spouse;
       
-      const numChildren = 1 + Math.floor(Math.random() * 4); // At least 1 child for succession
+      const numChildren = 1 + Math.floor(Math.random() * 4);
       for (let j = 0; j < numChildren; j++) {
         const childSex: Sex = Math.random() > 0.5 ? 'male' : 'female';
         const childAge = Math.floor(Math.random() * 15);
         const child = createCharacter(
-          generateName(otherCulture, childSex),
+          generateName(cultureId, childSex),
           childSex,
-          otherCulture,
-          otherDynasty.id,
+          cultureId,
+          dynasty.id,
           -childAge * 52,
-          otherSpouseSex === 'female' ? otherSpouse.id : otherRuler.id,
-          otherSpouseSex === 'male' ? otherSpouse.id : otherRuler.id
+          spouseSex === 'female' ? spouse.id : ruler.id,
+          spouseSex === 'male' ? spouse.id : ruler.id
         );
-        child.atCourt = otherRuler.id;
-        otherRuler.childrenIds.push(child.id);
-        otherSpouse.childrenIds.push(child.id);
+        child.atCourt = ruler.id;
+        ruler.childrenIds.push(child.id);
+        spouse.childrenIds.push(child.id);
         characters[child.id] = child;
       }
+    }
+    
+    // Create feudal hierarchy: 3 kingdoms, 5 duchies as vassals, 7 counties as sub-vassals
+    const kingdomTitles: Title[] = [];
+    const duchyTitles: Title[] = [];
+    
+    // Create 3 kingdoms (independent - no liege)
+    for (let i = 0; i < 3; i++) {
+      const cultureId = otherCultures[i % otherCultures.length];
+      const kingdomName = generateDynastyName(cultureId);
+      const kingdomTitle = createTitle(`Kingdom of ${kingdomName}`, 'kingdom', null);
+      allTitles[kingdomTitle.id] = kingdomTitle;
+      kingdomTitles.push(kingdomTitle);
+      createRulerWithFamily(cultureId, kingdomTitle);
+    }
+    
+    // Create 5 duchies as vassals to kingdoms
+    for (let i = 0; i < 5; i++) {
+      const cultureId = otherCultures[(i + 3) % otherCultures.length];
+      const duchyName = generateDynastyName(cultureId);
+      const duchyTitle = createTitle(`Duchy of ${duchyName}`, 'duchy', null);
+      
+      // Assign liege - distribute among kingdoms
+      const liegeKingdom = kingdomTitles[i % kingdomTitles.length];
+      duchyTitle.dejureLiegeId = liegeKingdom.id;
+      liegeKingdom.vassalTitleIds.push(duchyTitle.id);
+      
+      allTitles[duchyTitle.id] = duchyTitle;
+      duchyTitles.push(duchyTitle);
+      createRulerWithFamily(cultureId, duchyTitle);
+    }
+    
+    // Create 7 counties as vassals to duchies
+    for (let i = 0; i < 7; i++) {
+      const cultureId = otherCultures[i % otherCultures.length];
+      const countyName = generateDynastyName(cultureId);
+      const countyTitle = createTitle(`County of ${countyName}`, 'county', null);
+      
+      // Assign liege - distribute among duchies
+      const liegeDuchy = duchyTitles[i % duchyTitles.length];
+      countyTitle.dejureLiegeId = liegeDuchy.id;
+      liegeDuchy.vassalTitleIds.push(countyTitle.id);
+      
+      allTitles[countyTitle.id] = countyTitle;
+      createRulerWithFamily(cultureId, countyTitle);
     }
     
     const state: GameState = {
@@ -475,6 +509,41 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setActiveScreen('character');
     }
   }, []);
+
+  const viewCharacterTree = useCallback((characterId: string) => {
+    if (!gameState) return;
+    const character = gameState.characters[characterId];
+    if (!character || !character.dynastyId) return;
+    
+    // Find the dynasty founder and expand the full lineage path
+    const dynasty = gameState.dynasties[character.dynastyId];
+    if (dynasty) {
+      // Build path from founder to character by tracing up parents
+      const nodesToExpand = new Set<string>([dynasty.founderId, characterId]);
+      
+      // Trace from character up to founder
+      let current = character;
+      while (current) {
+        nodesToExpand.add(current.id);
+        // Check mother first, then father
+        const mother = current.motherId ? gameState.characters[current.motherId] : null;
+        const father = current.fatherId ? gameState.characters[current.fatherId] : null;
+        
+        // Follow the parent that's in this dynasty
+        if (mother && mother.dynastyId === dynasty.id) {
+          current = mother;
+        } else if (father && father.dynastyId === dynasty.id) {
+          current = father;
+        } else {
+          break;
+        }
+      }
+      
+      setTreeExpandedNodes(nodesToExpand);
+    }
+    setActiveScreen('tree');
+    setSelectedCharacterId(characterId);
+  }, [gameState]);
 
   const getCharacter = useCallback((id: string): Character | undefined => {
     return gameState?.characters[id];
@@ -598,7 +667,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const arrangeMarriage = useCallback((char1Id: string, char2Id: string): boolean => {
+  const arrangeMarriage = useCallback((char1Id: string, char2Id: string, matrilineal: boolean = false): boolean => {
     if (!gameState) return false;
     
     const char1 = gameState.characters[char1Id];
@@ -617,14 +686,44 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setGameState(prev => {
       if (!prev) return null;
       
-      const newChar1 = { ...prev.characters[char1Id], spouseIds: [...prev.characters[char1Id].spouseIds, char2Id] };
-      const newChar2 = { ...prev.characters[char2Id], spouseIds: [...prev.characters[char2Id].spouseIds, char1Id] };
+      // Determine who is the husband and wife
+      const husband = char1.sex === 'male' ? char1 : char2;
+      const wife = char1.sex === 'female' ? char1 : char2;
+      const husbandId = husband.id;
+      const wifeId = wife.id;
       
+      // Determine where wife moves to - wife moves to husband's court unless she's a ruler
+      const wifeIsRuler = wife.isRuler && wife.primaryTitleId;
+      let wifeNewCourt = wife.atCourt;
+      let husbandNewCourt = husband.atCourt;
+      
+      if (wifeIsRuler) {
+        // Wife stays in her court, husband joins her court
+        husbandNewCourt = wifeId;
+      } else {
+        // Wife moves to husband's court (husband's location or husband himself if he's a ruler)
+        wifeNewCourt = husband.isRuler ? husbandId : husband.atCourt;
+      }
+      
+      const newHusband = { 
+        ...prev.characters[husbandId], 
+        spouseIds: [...prev.characters[husbandId].spouseIds, wifeId],
+        matrilinealMarriage: matrilineal,
+        atCourt: husbandNewCourt,
+      };
+      const newWife = { 
+        ...prev.characters[wifeId], 
+        spouseIds: [...prev.characters[wifeId].spouseIds, husbandId],
+        matrilinealMarriage: matrilineal,
+        atCourt: wifeNewCourt,
+      };
+      
+      const marriageType = matrilineal ? 'Matrilineal Marriage' : 'Marriage';
       const marriageEvent: GameEvent = {
         id: generateId(),
         type: 'marriage',
-        title: 'Marriage',
-        description: `${newChar1.name} and ${newChar2.name} have been wed.`,
+        title: marriageType,
+        description: `${newHusband.name} and ${newWife.name} have been wed${matrilineal ? ' in a matrilineal marriage' : ''}.`,
         week: prev.currentWeek,
         characterId: char1Id,
         resolved: true,
@@ -634,8 +733,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         ...prev,
         characters: {
           ...prev.characters,
-          [char1Id]: newChar1,
-          [char2Id]: newChar2,
+          [husbandId]: newHusband,
+          [wifeId]: newWife,
         },
         eventLog: [...prev.eventLog, marriageEvent],
       };
@@ -838,6 +937,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
               }
             }
             
+            // Child mortality: 10% per year for children under age 5
+            if (age < 5 && newWeek % 52 === 0) {
+              if (Math.random() < 0.10) {
+                newCharacters[charId] = { ...char, alive: false, deathWeek: newWeek };
+                deadCharIds.push(charId);
+                
+                newEventLog.push({
+                  id: generateId(),
+                  type: 'death',
+                  title: 'Child Death',
+                  description: `${char.name} has died in childhood at the age of ${age}.`,
+                  week: newWeek,
+                  characterId: charId,
+                  resolved: true,
+                });
+                continue;
+              }
+            }
+            
             if (char.pregnantWith && char.pregnancyWeeksRemaining > 0) {
               const updatedChar = { ...newCharacters[charId] };
               updatedChar.pregnancyWeeksRemaining--;
@@ -846,20 +964,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
                 const father = newCharacters[char.pregnantWith];
                 if (father) {
                   const childSex: Sex = Math.random() > 0.5 ? 'male' : 'female';
+                  
+                  // Dynasty inheritance: father's dynasty unless matrilineal marriage
+                  const isMatrilineal = char.matrilinealMarriage || father.matrilinealMarriage;
+                  const childDynasty = isMatrilineal ? char.dynastyId : (father.dynastyId || char.dynastyId);
+                  
+                  // Court assignment: child joins the parent's court (the ruler parent, or the court they're at)
+                  const parentCourt = char.isRuler ? char.id : (father.isRuler ? father.id : (char.atCourt || father.atCourt));
+                  
                   const child = createCharacter(
                     generateName(char.culture, childSex),
                     childSex,
                     char.culture,
-                    char.dynastyId || father.dynastyId,
+                    childDynasty,
                     newWeek,
                     char.id,
-                    father.id
+                    father.id,
+                    parentCourt
                   );
                   
                   updatedChar.childrenIds = [...updatedChar.childrenIds, child.id];
                   newCharacters[father.id] = {
-                    ...father,
-                    childrenIds: [...father.childrenIds, child.id],
+                    ...newCharacters[father.id],
+                    childrenIds: [...newCharacters[father.id].childrenIds, child.id],
                   };
                   newCharacters[child.id] = child;
                   
@@ -872,6 +999,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
                     characterId: char.id,
                     resolved: true,
                   });
+                  
+                  // Maternal mortality: 10% chance of mother dying per birth
+                  if (Math.random() < 0.10) {
+                    updatedChar.alive = false;
+                    updatedChar.deathWeek = newWeek;
+                    deadCharIds.push(charId);
+                    
+                    newEventLog.push({
+                      id: generateId(),
+                      type: 'death',
+                      title: 'Death in Childbirth',
+                      description: `${char.name} has died in childbirth at the age of ${age}.`,
+                      week: newWeek,
+                      characterId: charId,
+                      resolved: true,
+                    });
+                  }
                 }
                 
                 updatedChar.pregnantWith = null;
@@ -880,16 +1024,25 @@ export function GameProvider({ children }: { children: ReactNode }) {
               newCharacters[charId] = updatedChar;
             }
             
+            // Pregnancy logic with child cap of 4 and reduced chance
             if (char.sex === 'female' && char.spouseIds.length > 0 && !char.pregnantWith && age >= 16 && age <= 45) {
               const spouse = newCharacters[char.spouseIds[0]];
               if (spouse && spouse.alive) {
-                const pregnancyChance = (char.fertility / 100) * (spouse.fertility / 100) * 0.02;
-                if (Math.random() < pregnancyChance) {
-                  newCharacters[charId] = {
-                    ...char,
-                    pregnantWith: spouse.id,
-                    pregnancyWeeksRemaining: 40,
-                  };
+                // Count existing children from this couple (both parents must have the child)
+                const sharedChildren = char.childrenIds.filter(cid => spouse.childrenIds.includes(cid));
+                const childCount = sharedChildren.length;
+                
+                // Hard cap of 4 children per couple
+                if (childCount < 4) {
+                  // Reduced pregnancy chance (was 0.02, now 0.005 = ~0.26 per year, much lower)
+                  const pregnancyChance = (char.fertility / 100) * (spouse.fertility / 100) * 0.005;
+                  if (Math.random() < pregnancyChance) {
+                    newCharacters[charId] = {
+                      ...newCharacters[charId],
+                      pregnantWith: spouse.id,
+                      pregnancyWeeksRemaining: 40,
+                    };
+                  }
                 }
               }
             }
@@ -934,45 +1087,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
             }
           }
           
-          // Handle player character death - switch to heir
+          // Handle player character death - MUST switch to a living character
           let newPlayerCharacterId = prev.playerCharacterId;
           const playerChar = newCharacters[prev.playerCharacterId];
-          
-          if (playerChar && !playerChar.alive) {
-            // Find the heir from the player's dynasty
-            const playerSuccessionLine = calculateSuccessionLine(prev.playerCharacterId, newCharacters, 'primogeniture');
-            const dynastyHeirs = playerSuccessionLine.filter(id => {
-              const char = newCharacters[id];
-              return char && char.alive && char.dynastyId === prev.playerDynastyId;
-            });
-            
-            if (dynastyHeirs.length > 0) {
-              newPlayerCharacterId = dynastyHeirs[0];
-              const newPlayerChar = newCharacters[newPlayerCharacterId];
-              
-              newEventLog.push({
-                id: generateId(),
-                type: 'succession',
-                title: 'You are now playing as your heir',
-                description: `You are now ${newPlayerChar.name}, heir to the ${newDynasties[prev.playerDynastyId]?.name || ''} dynasty.`,
-                week: newWeek,
-                characterId: newPlayerCharacterId,
-                resolved: true,
-              });
-            }
-          }
-          
-          if (Math.random() < 0.02) {
-            const currentPlayerChar = newCharacters[newPlayerCharacterId];
-            if (currentPlayerChar && currentPlayerChar.alive) {
-              const event = generateEvent(currentPlayerChar, newWeek);
-              if (event) {
-                newEvents.push(event);
-              }
-            }
-          }
-          
           const playerDynasty = newDynasties[prev.playerDynastyId];
+          
+          // Get all living dynasty members
           const livingDynastyMembers = Object.values(newCharacters).filter(
             c => c.dynastyId === prev.playerDynastyId && c.alive
           );
@@ -980,9 +1100,50 @@ export function GameProvider({ children }: { children: ReactNode }) {
           let gameOver = false;
           let gameOverReason: string | null = null;
           
-          if (livingDynastyMembers.length === 0) {
-            gameOver = true;
-            gameOverReason = `The ${playerDynasty?.name || 'dynasty'} has ended. No living heirs remain.`;
+          // CRITICAL: Player must ALWAYS control a living character
+          if (!playerChar || !playerChar.alive) {
+            if (livingDynastyMembers.length === 0) {
+              // No living dynasty members - game over
+              gameOver = true;
+              gameOverReason = `The ${playerDynasty?.name || 'dynasty'} has ended. No living heirs remain.`;
+            } else {
+              // Find the best heir using succession line, or fall back to any living member
+              const playerSuccessionLine = calculateSuccessionLine(prev.playerCharacterId, newCharacters, 'primogeniture');
+              const dynastyHeirs = playerSuccessionLine.filter(id => {
+                const char = newCharacters[id];
+                return char && char.alive && char.dynastyId === prev.playerDynastyId;
+              });
+              
+              if (dynastyHeirs.length > 0) {
+                newPlayerCharacterId = dynastyHeirs[0];
+              } else {
+                // No heirs in succession line, pick any living dynasty member (prefer rulers)
+                const rulers = livingDynastyMembers.filter(c => c.isRuler);
+                newPlayerCharacterId = rulers.length > 0 ? rulers[0].id : livingDynastyMembers[0].id;
+              }
+              
+              const newPlayerChar = newCharacters[newPlayerCharacterId];
+              
+              newEventLog.push({
+                id: generateId(),
+                type: 'succession',
+                title: 'You are now playing as your heir',
+                description: `You are now ${newPlayerChar.name}, heir to the ${playerDynasty?.name || ''} dynasty.`,
+                week: newWeek,
+                characterId: newPlayerCharacterId,
+                resolved: true,
+              });
+            }
+          }
+          
+          if (!gameOver && Math.random() < 0.02) {
+            const currentPlayerChar = newCharacters[newPlayerCharacterId];
+            if (currentPlayerChar && currentPlayerChar.alive) {
+              const event = generateEvent(currentPlayerChar, newWeek);
+              if (event) {
+                newEvents.push(event);
+              }
+            }
           }
           
           let shouldAutosave = false;
@@ -1040,6 +1201,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setActiveScreen,
         resolveEvent,
         arrangeMarriage,
+        viewCharacterTree,
         inviteToCourt,
         banishFromCourt,
         grantTitle,

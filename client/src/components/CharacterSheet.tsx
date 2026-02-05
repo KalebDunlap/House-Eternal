@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'wouter';
 import { 
   Heart, 
   Baby, 
@@ -24,7 +25,9 @@ import {
   UserPlus,
   UserMinus,
   Home,
-  Castle
+  Castle,
+  GitBranch,
+  Shield
 } from 'lucide-react';
 
 export function CharacterSheet() {
@@ -37,11 +40,13 @@ export function CharacterSheet() {
     getSpouses, 
     getParents,
     setActiveScreen,
+    viewCharacterTree,
     inviteToCourt,
     banishFromCourt,
     grantTitle
   } = useGame();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const getPlayerTitles = () => {
     if (!gameState) return [];
@@ -98,16 +103,32 @@ export function CharacterSheet() {
   return (
     <ScrollArea className="h-full">
       <div className="p-6 max-w-4xl mx-auto">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mb-4"
-          onClick={() => setActiveScreen('tree')}
-          data-testid="back-to-tree"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Family Tree
-        </Button>
+        <div className="flex items-center gap-2 mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setLocation('/tree')}
+            data-testid="back-to-tree"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Family Tree
+          </Button>
+          
+          {character.dynastyId && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                viewCharacterTree(character.id);
+                setLocation('/tree');
+              }}
+              data-testid="view-dynasty-tree"
+            >
+              <GitBranch className="h-4 w-4 mr-2" />
+              View {character.dynastyId === gameState.playerDynastyId ? 'My' : 'Their'} Dynasty Tree
+            </Button>
+          )}
+        </div>
 
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -160,6 +181,44 @@ export function CharacterSheet() {
                     <p className="font-medium capitalize">{character.sex}</p>
                   </div>
                 </div>
+
+                {/* Liege display - all characters except top-tier rulers have a liege */}
+                {(() => {
+                  // Find the character's liege (title holder above them in hierarchy)
+                  const charTitle = character.primaryTitleId ? gameState.titles[character.primaryTitleId] : null;
+                  const liegeTitle = charTitle?.dejureLiegeId ? gameState.titles[charTitle.dejureLiegeId] : null;
+                  const liege = liegeTitle?.holderId ? gameState.characters[liegeTitle.holderId] : null;
+                  
+                  if (liege && liege.id !== character.id) {
+                    return (
+                      <div className="mb-4">
+                        <p className="text-sm text-muted-foreground mb-1">Liege</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 h-auto hover:bg-transparent"
+                          onClick={() => selectCharacter(liege.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-primary hover:underline">
+                              {getCharacterTitle(liege, gameState.titles)} {liege.name}
+                            </span>
+                          </div>
+                        </Button>
+                      </div>
+                    );
+                  } else if (!charTitle || charTitle.rank === 'kingdom' || charTitle.rank === 'empire') {
+                    // Top-tier rulers have no liege
+                    return character.isRuler ? (
+                      <div className="mb-4">
+                        <p className="text-sm text-muted-foreground">Liege</p>
+                        <p className="font-medium text-muted-foreground italic">None (Independent Ruler)</p>
+                      </div>
+                    ) : null;
+                  }
+                  return null;
+                })()}
 
                 <div className="flex items-center gap-6">
                   <div className="flex items-center gap-2">

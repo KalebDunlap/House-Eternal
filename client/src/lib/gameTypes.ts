@@ -53,6 +53,8 @@ export interface Character {
   isRuler: boolean;
   primaryTitleId: string | null;
   atCourt: string | null;
+  liegeId: string | null;
+  matrilinealMarriage: boolean;
 }
 
 export interface Dynasty {

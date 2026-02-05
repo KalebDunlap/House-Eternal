@@ -1,0 +1,167 @@
+Gameplay & Systems Fixes – Required Changes
+
+There are several core gameplay and simulation issues that must be fixed. These are design rules, not optional suggestions. Please implement them exactly as described.
+
+1. Player Character Succession (CRITICAL BUG)
+
+Current behavior:
+
+After the original ruler dies, succession works once.
+
+After the next player character dies, the game incorrectly continues as the dead character.
+
+Required behavior:
+
+At all times, the player must control a living character.
+
+When the currently played character dies:
+
+If they have a valid heir → immediately switch player control to the heir.
+
+If no valid heir exists → trigger a game-over state.
+
+This must work recursively and indefinitely (not only for the first succession).
+
+Acceptance criteria:
+
+It is impossible for the player to continue as a dead character.
+
+Succession logic runs on every player-character death, not only the founder.
+
+2. Formal, Inheritable Titles (NOT just ranks)
+
+Current behavior:
+
+Characters are generically labeled “King”, “Duke”, etc.
+
+There are no concrete titles.
+
+Required behavior:
+
+Introduce formal titles with unique names (e.g., “King of the Anglo-Saxons”, “Duke of Mercia”).
+
+Titles are:
+
+Inheritable
+
+Passed down through succession
+
+Capable of being held simultaneously (one character may hold multiple titles).
+
+Rank (King/Duke/etc.) should be derived from held titles, not assigned directly.
+
+Acceptance criteria:
+
+Titles exist as first-class entities (not strings on a character).
+
+Titles persist beyond the life of a character and transfer on inheritance.
+
+3. Feudal Hierarchy & Dynasty Navigation
+
+Required behavior:
+
+Every character (except top-tier rulers) must have a visible liege.
+
+The liege relationship must be viewable on the character’s info screen.
+
+Kings/Queens at the top of the hierarchy have no liege.
+
+Add a button on every character info page to:
+
+Open that character’s family tree
+
+Work for all dynasties, not just the player’s.
+
+Acceptance criteria:
+
+Liege is always visible and accurate.
+
+Family trees are accessible from any character’s profile.
+
+4. Population Control & Medieval Mortality Balance
+
+The UI becomes unusable when families grow too large. Implement the following historical constraints:
+
+Children limits:
+
+Maximum of 4 children per couple, hard cap.
+
+Mortality changes:
+
+Child mortality:
+
+10% chance per year for each child until age 5.
+
+Maternal mortality:
+
+10% chance of mother dying per birth.
+
+Fertility tuning:
+
+Couples should not become pregnant every year.
+
+Reduce annual pregnancy chance to allow realistic spacing between children.
+
+Acceptance criteria:
+
+Families rarely exceed 3–4 children.
+
+Child and maternal deaths occur regularly and visibly affect dynasties.
+
+5. Dynasty Inheritance & Marriage Rules
+
+Required behavior:
+
+Children inherit the father’s dynasty by default.
+
+Support matrilineal marriages, selectable at the time of marriage:
+
+In matrilineal marriages, children inherit the mother’s dynasty.
+
+Marriage age must be 16 years old (not lower).
+
+Acceptance criteria:
+
+Dynasty inheritance always follows marriage type.
+
+Matrilineal vs patrilineal status is explicit and stored.
+
+6. Broken Navigation Bug (UI)
+
+Bug:
+
+The “Back to Family Tree” button from the character view does not work.
+
+Required behavior:
+
+Button must reliably return the player to the correct family tree view.
+
+Acceptance criteria:
+
+Navigation works consistently with no dead-ends.
+
+7. Court Residency Rules
+
+Required behavior:
+
+All children born to a character automatically reside in that character’s court.
+
+Upon marriage:
+
+The wife moves to the husband’s court by default.
+
+Exception: if the wife is a ruler in her own right, she stays in her current court and the husband relocates (or remains external if intended).
+
+Acceptance criteria:
+
+Court membership updates correctly on birth and marriage.
+
+No children or spouses end up in undefined or incorrect courts.
+
+Final Notes
+
+These are systemic simulation rules, not UI polish.
+
+If any of these systems conflict with existing logic, refactor the logic — do not add special cases.
+
+Focus on correctness, determinism, and long-term stability over quick fixes.
