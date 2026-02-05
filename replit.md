@@ -4,6 +4,12 @@
 A browser-based medieval dynasty simulator inspired by Crusader Kings. The game focuses on family tree management, succession, and keeping a dynasty alive through generations. All game state is saved/loaded via localStorage - no backend database required.
 
 ## Recent Changes
+- **February 2026**: Family tree connector alignment fix
+  - Uses SVG overlay with position:absolute inside scrollable container
+  - Connector coordinates calculated using getBoundingClientRect with proper viewport-to-container conversion
+  - Lines recompute on: mount (double RAF), window resize, container scroll, tree data changes
+  - Uses ResizeObserver for dynamic size changes
+  - Orthogonal paths connect union center to child top-center
 - **February 2026**: Major succession system overhaul
   - Fixed primogeniture to properly show grandchildren before younger siblings (depth-first inheritance)
   - Added title inheritance on character death - titles pass to heirs based on succession law

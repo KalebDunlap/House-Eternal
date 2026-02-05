@@ -3,11 +3,17 @@ import { type Character, getCharacterAge, getCharacterTitle, CULTURES } from '@/
 import { Portrait } from './Portrait';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, ChevronRight, Skull, Heart, Users } from 'lucide-react';
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
+
+interface Connection {
+  id: string;
+  type: 'spouse' | 'child';
+  fromId: string;
+  toId: string;
+}
 
 interface TreeNodeProps {
   character: Character;
@@ -20,6 +26,8 @@ interface TreeNodeProps {
   showDeceased: boolean;
   depth: number;
   playerDynastyId: string;
+  registerNode: (id: string, type: 'character' | 'spouse' | 'union') => (el: HTMLDivElement | null) => void;
+  registerConnection: (conn: Connection) => void;
 }
 
 function TreeNode({ 
@@ -33,6 +41,8 @@ function TreeNode({
   showDeceased,
   depth,
   playerDynastyId,
+  registerNode,
+  registerConnection,
 }: TreeNodeProps) {
   const children = character.childrenIds
     .map(id => characters[id])
@@ -43,143 +53,163 @@ function TreeNode({
   const age = getCharacterAge(character, currentWeek);
   const title = getCharacterTitle(character, titles);
   const spouse = character.spouseIds.length > 0 ? characters[character.spouseIds[0]] : null;
+  const showSpouse = spouse && (showDeceased || spouse.alive);
   const isPlayerDynasty = character.dynastyId === playerDynastyId;
+  
+  const unionId = `union-${character.id}`;
+
+  useEffect(() => {
+    if (showSpouse) {
+      registerConnection({
+        id: `spouse-${character.id}-${spouse.id}`,
+        type: 'spouse',
+        fromId: character.id,
+        toId: spouse.id,
+      });
+    }
+    
+    if (hasChildren && isExpanded) {
+      children.forEach(child => {
+        registerConnection({
+          id: `child-${character.id}-${child.id}`,
+          type: 'child',
+          fromId: unionId,
+          toId: child.id,
+        });
+      });
+    }
+  }, [character.id, spouse?.id, showSpouse, hasChildren, isExpanded, children, registerConnection, unionId]);
 
   return (
     <div className="flex flex-col items-center relative">
       <div className="flex items-center">
-        <Card 
-          className={`p-0 cursor-pointer transition-all hover-elevate border-2 bg-[#F3E6D5] overflow-visible ${
-            !character.alive ? 'opacity-60 border-muted grayscale' : 
-            isPlayerDynasty ? 'border-[#C1A173]' : 'border-transparent'
-          }`}
-          style={{ width: '180px' }}
-          onClick={() => onSelect(character.id)}
-          data-testid={`tree-node-${character.id}`}
-        >
-          <div className="flex items-center p-2 gap-3 relative">
-            {hasChildren && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="absolute -left-8 top-1/2 -translate-y-1/2 h-6 w-6 shrink-0 bg-[#F3E6D5] border border-[#C1A173] rounded-sm hover:bg-[#E8D9C5]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleExpand(character.id);
-                }}
-                data-testid={`expand-${character.id}`}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-[#8B4513]" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-[#8B4513]" />
-                )}
-              </Button>
-            )}
-            <div className="shrink-0 border border-[#C1A173]/30 rounded-sm bg-white p-0.5">
-              <Portrait
-                portrait={character.portrait}
-                sex={character.sex}
-                culture={character.culture}
-                rank={character.primaryTitleId ? titles[character.primaryTitleId]?.rank : null}
-                alive={character.alive}
-                size="sm"
-              />
-            </div>
-            <div className="flex flex-col min-w-0 flex-1">
-              <div className="flex items-center gap-1 justify-between">
-                <span className={`text-sm font-serif font-bold truncate ${!character.alive ? 'text-muted-foreground' : 'text-[#5D4037]'}`}>
-                  {character.name}
-                </span>
-                {!character.alive && (
-                  <Skull className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                )}
+        <div ref={registerNode(character.id, 'character')}>
+          <Card 
+            className={`p-0 cursor-pointer transition-all hover-elevate border-2 bg-[#F3E6D5] overflow-visible ${
+              !character.alive ? 'opacity-60 border-muted grayscale' : 
+              isPlayerDynasty ? 'border-[#C1A173]' : 'border-transparent'
+            }`}
+            style={{ width: '180px' }}
+            onClick={() => onSelect(character.id)}
+            data-testid={`tree-node-${character.id}`}
+          >
+            <div className="flex items-center p-2 gap-3 relative">
+              {hasChildren && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute -left-8 top-1/2 -translate-y-1/2 h-6 w-6 shrink-0 bg-[#F3E6D5] border border-[#C1A173] rounded-sm hover:bg-[#E8D9C5]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleExpand(character.id);
+                  }}
+                  data-testid={`expand-${character.id}`}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4 text-[#8B4513]" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-[#8B4513]" />
+                  )}
+                </Button>
+              )}
+              <div className="shrink-0 border border-[#C1A173]/30 rounded-sm bg-white p-0.5">
+                <Portrait
+                  portrait={character.portrait}
+                  sex={character.sex}
+                  culture={character.culture}
+                  rank={character.primaryTitleId ? titles[character.primaryTitleId]?.rank : null}
+                  alive={character.alive}
+                  size="sm"
+                />
               </div>
-              <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                {title && (
-                  <span className="text-[10px] font-medium text-[#8B4513] bg-[#E8D9C5] px-1 rounded-sm">
-                    {title}
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex items-center gap-1 justify-between">
+                  <span className={`text-sm font-serif font-bold truncate ${!character.alive ? 'text-muted-foreground' : 'text-[#5D4037]'}`}>
+                    {character.name}
                   </span>
-                )}
-                <span className="text-[11px] text-[#795548] font-mono">
-                  {age}
-                </span>
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {spouse && (showDeceased || spouse.alive) && (
-          <>
-            <div className="w-8 h-1 bg-[#C1A173] flex items-center justify-center relative">
-              <Heart className="h-3 w-3 text-[#C1A173] absolute fill-[#F3E6D5]" />
-            </div>
-            <Card 
-              className={`p-0 cursor-pointer transition-all hover-elevate border-2 bg-[#F3E6D5] ${
-                !spouse.alive ? 'opacity-60 grayscale' : 'border-transparent'
-              }`}
-              style={{ width: '150px' }}
-              onClick={() => onSelect(spouse.id)}
-              data-testid={`spouse-node-${spouse.id}`}
-            >
-              <div className="flex items-center p-2 gap-3">
-                <div className="shrink-0 border border-[#C1A173]/30 rounded-sm bg-white p-0.5">
-                  <Portrait
-                    portrait={spouse.portrait}
-                    sex={spouse.sex}
-                    culture={spouse.culture}
-                    rank={spouse.primaryTitleId ? titles[spouse.primaryTitleId]?.rank : null}
-                    alive={spouse.alive}
-                    size="sm"
-                  />
+                  {!character.alive && (
+                    <Skull className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                  )}
                 </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className={`text-sm font-serif font-bold truncate ${!spouse.alive ? 'text-muted-foreground' : 'text-[#5D4037]'}`}>
-                    {spouse.name}
-                  </span>
+                <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                  {title && (
+                    <span className="text-[10px] font-medium text-[#8B4513] bg-[#E8D9C5] px-1 rounded-sm">
+                      {title}
+                    </span>
+                  )}
                   <span className="text-[11px] text-[#795548] font-mono">
-                    {getCharacterAge(spouse, currentWeek)}
+                    {age}
                   </span>
                 </div>
               </div>
-            </Card>
+            </div>
+          </Card>
+        </div>
+
+        {showSpouse && (
+          <>
+            <div 
+              ref={registerNode(unionId, 'union')}
+              className="w-8 h-6 flex items-center justify-center relative"
+            >
+              <Heart className="h-4 w-4 text-[#C1A173] fill-[#F3E6D5]" />
+            </div>
+            <div ref={registerNode(spouse.id, 'spouse')}>
+              <Card 
+                className={`p-0 cursor-pointer transition-all hover-elevate border-2 bg-[#F3E6D5] ${
+                  !spouse.alive ? 'opacity-60 grayscale' : 'border-transparent'
+                }`}
+                style={{ width: '150px' }}
+                onClick={() => onSelect(spouse.id)}
+                data-testid={`spouse-node-${spouse.id}`}
+              >
+                <div className="flex items-center p-2 gap-3">
+                  <div className="shrink-0 border border-[#C1A173]/30 rounded-sm bg-white p-0.5">
+                    <Portrait
+                      portrait={spouse.portrait}
+                      sex={spouse.sex}
+                      culture={spouse.culture}
+                      rank={spouse.primaryTitleId ? titles[spouse.primaryTitleId]?.rank : null}
+                      alive={spouse.alive}
+                      size="sm"
+                    />
+                  </div>
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className={`text-sm font-serif font-bold truncate ${!spouse.alive ? 'text-muted-foreground' : 'text-[#5D4037]'}`}>
+                      {spouse.name}
+                    </span>
+                    <span className="text-[11px] text-[#795548] font-mono">
+                      {getCharacterAge(spouse, currentWeek)}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </>
         )}
       </div>
 
       {hasChildren && isExpanded && (
-        <div className="flex flex-col items-center mt-0 w-full">
-          <div className="w-1 h-8 bg-[#C1A173] mb-0" />
-          
-          <div className="relative flex justify-center w-full">
-            {children.length > 1 && (
-              <div 
-                className="absolute top-0 h-1 bg-[#C1A173]" 
-                style={{ 
-                  left: `calc(100% / ${children.length * 2})`,
-                  right: `calc(100% / ${children.length * 2})`,
-                }} 
-              />
-            )}
-            <div className="flex gap-12 px-4 justify-center">
-              {children.map((child) => (
-                <div key={child.id} className="flex flex-col items-center relative">
-                  <div className="w-1 h-8 bg-[#C1A173]" />
-                  <TreeNode
-                    character={child}
-                    currentWeek={currentWeek}
-                    titles={titles}
-                    characters={characters}
-                    onSelect={onSelect}
-                    expandedNodes={expandedNodes}
-                    onToggleExpand={onToggleExpand}
-                    showDeceased={showDeceased}
-                    depth={depth + 1}
-                    playerDynastyId={playerDynastyId}
-                  />
-                </div>
-              ))}
-            </div>
+        <div className="flex flex-col items-center mt-8 w-full">
+          <div className="flex gap-12 px-4 justify-center">
+            {children.map((child) => (
+              <div key={child.id} className="flex flex-col items-center relative">
+                <TreeNode
+                  character={child}
+                  currentWeek={currentWeek}
+                  titles={titles}
+                  characters={characters}
+                  onSelect={onSelect}
+                  expandedNodes={expandedNodes}
+                  onToggleExpand={onToggleExpand}
+                  showDeceased={showDeceased}
+                  depth={depth + 1}
+                  playerDynastyId={playerDynastyId}
+                  registerNode={registerNode}
+                  registerConnection={registerConnection}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -187,10 +217,29 @@ function TreeNode({
   );
 }
 
+interface PathData {
+  id: string;
+  d: string;
+  type: 'spouse' | 'child';
+}
+
 export function FamilyTree() {
   const { gameState, selectCharacter, treeExpandedNodes, setTreeExpandedNodes, toggleTreeNode } = useGame();
   const [, setLocation] = useLocation();
-  const [showDeceased, setShowDeceased] = React.useState(true);
+  const [showDeceased, setShowDeceased] = useState(true);
+  const [paths, setPaths] = useState<PathData[]>([]);
+  
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const nodesRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const connectionsRef = useRef<Map<string, Connection>>(new Map());
+  const [updateTrigger, setUpdateTrigger] = useState(0);
+
+  const [isPanning, setIsPanning] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [startY, setStartY] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
 
   const handleSelectCharacter = useCallback((id: string) => {
     selectCharacter(id);
@@ -239,27 +288,126 @@ export function FamilyTree() {
     return { living, total, generations: maxDepth };
   }, [gameState, dynastyFounder]);
 
-  if (!gameState || !dynastyFounder) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <Users className="h-12 w-12 text-muted-foreground/50" />
-        <p className="text-muted-foreground">No dynasty loaded</p>
-      </div>
-    );
-  }
+  const registerNode = useCallback((id: string, type: 'character' | 'spouse' | 'union') => {
+    return (el: HTMLDivElement | null) => {
+      if (el) {
+        nodesRef.current.set(id, el);
+      } else {
+        nodesRef.current.delete(id);
+      }
+    };
+  }, []);
 
-  const [isPanning, setIsPanning] = React.useState(false);
-  const [startX, setStartX] = React.useState(0);
-  const [startY, setStartY] = React.useState(0);
-  const [scrollLeft, setScrollLeft] = React.useState(0);
-  const [scrollTop, setScrollTop] = React.useState(0);
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+  const registerConnection = useCallback((conn: Connection) => {
+    connectionsRef.current.set(conn.id, conn);
+  }, []);
+
+  const computePaths = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const newPaths: PathData[] = [];
+
+    connectionsRef.current.forEach((conn) => {
+      const fromEl = nodesRef.current.get(conn.fromId);
+      const toEl = nodesRef.current.get(conn.toId);
+      
+      if (!fromEl || !toEl) return;
+
+      const fromRect = fromEl.getBoundingClientRect();
+      const toRect = toEl.getBoundingClientRect();
+
+      if (conn.type === 'spouse') {
+        const fromX = fromRect.right - containerRect.left + container.scrollLeft;
+        const fromY = fromRect.top + fromRect.height / 2 - containerRect.top + container.scrollTop;
+        const toX = toRect.left - containerRect.left + container.scrollLeft;
+        const toY = toRect.top + toRect.height / 2 - containerRect.top + container.scrollTop;
+
+        newPaths.push({
+          id: conn.id,
+          type: 'spouse',
+          d: `M ${fromX} ${fromY} L ${toX} ${toY}`,
+        });
+      } else if (conn.type === 'child') {
+        const fromX = fromRect.left + fromRect.width / 2 - containerRect.left + container.scrollLeft;
+        const fromY = fromRect.bottom - containerRect.top + container.scrollTop;
+        const toX = toRect.left + toRect.width / 2 - containerRect.left + container.scrollLeft;
+        const toY = toRect.top - containerRect.top + container.scrollTop;
+
+        const midY = fromY + (toY - fromY) / 2;
+
+        newPaths.push({
+          id: conn.id,
+          type: 'child',
+          d: `M ${fromX} ${fromY} V ${midY} H ${toX} V ${toY}`,
+        });
+      }
+    });
+
+    setPaths(newPaths);
+  }, []);
+
+  useEffect(() => {
+    connectionsRef.current.clear();
+    setUpdateTrigger(prev => prev + 1);
+  }, [treeExpandedNodes, showDeceased, gameState?.characters]);
+
+  useEffect(() => {
+    let frameId1: number;
+    let frameId2: number;
+    
+    frameId1 = requestAnimationFrame(() => {
+      frameId2 = requestAnimationFrame(() => {
+        computePaths();
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(frameId1);
+      cancelAnimationFrame(frameId2);
+    };
+  }, [computePaths, updateTrigger]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      computePaths();
+    };
+
+    const handleResize = () => {
+      computePaths();
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        computePaths();
+      });
+    });
+
+    resizeObserver.observe(container);
+
+    nodesRef.current.forEach((node) => {
+      resizeObserver.observe(node);
+    });
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
+    };
+  }, [computePaths, updateTrigger]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollContainerRef.current) return;
     setIsPanning(true);
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft);
-    setStartY(e.pageY - scrollContainerRef.current.offsetTop);
+    setStartX(e.clientX);
+    setStartY(e.clientY);
     setScrollLeft(scrollContainerRef.current.scrollLeft);
     setScrollTop(scrollContainerRef.current.scrollTop);
   };
@@ -267,10 +415,8 @@ export function FamilyTree() {
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isPanning || !scrollContainerRef.current) return;
     e.preventDefault();
-    const x = e.pageX - scrollContainerRef.current.offsetLeft;
-    const y = e.pageY - scrollContainerRef.current.offsetTop;
-    const walkX = (x - startX) * 1.5;
-    const walkY = (y - startY) * 1.5;
+    const walkX = (e.clientX - startX) * 1.5;
+    const walkY = (e.clientY - startY) * 1.5;
     scrollContainerRef.current.scrollLeft = scrollLeft - walkX;
     scrollContainerRef.current.scrollTop = scrollTop - walkY;
   };
@@ -282,6 +428,15 @@ export function FamilyTree() {
   const handleMouseLeave = () => {
     setIsPanning(false);
   };
+
+  if (!gameState || !dynastyFounder) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <Users className="h-12 w-12 text-muted-foreground/50" />
+        <p className="text-muted-foreground">No dynasty loaded</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -327,13 +482,38 @@ export function FamilyTree() {
 
       <div 
         ref={scrollContainerRef}
-        className="flex-1 w-full h-full overflow-auto cursor-grab active:cursor-grabbing select-none"
+        className="flex-1 w-full h-full overflow-auto cursor-grab active:cursor-grabbing select-none relative"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="p-40 bg-[#F3E6D5]/10 min-w-max min-h-max flex justify-center items-start">
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          style={{ 
+            width: contentRef.current?.scrollWidth || '100%',
+            height: contentRef.current?.scrollHeight || '100%',
+            minWidth: '100%',
+            minHeight: '100%',
+          }}
+        >
+          {paths.map((path) => (
+            <path
+              key={path.id}
+              d={path.d}
+              fill="none"
+              stroke="#C1A173"
+              strokeWidth={path.type === 'spouse' ? 2 : 3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+        </svg>
+        
+        <div 
+          ref={contentRef}
+          className="p-40 bg-[#F3E6D5]/10 min-w-max min-h-max flex justify-center items-start relative"
+        >
           <div>
             <TreeNode
               character={dynastyFounder}
@@ -346,6 +526,8 @@ export function FamilyTree() {
               showDeceased={showDeceased}
               depth={0}
               playerDynastyId={gameState.playerDynastyId}
+              registerNode={registerNode}
+              registerConnection={registerConnection}
             />
           </div>
         </div>
